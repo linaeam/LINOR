@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fémur 3D cimenté vs press-fit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Fond blanc, une seule famille de caractères, gris neutres ; le bordeaux est réservé aux contraintes et à l'action */
+  --bg: #ffffff;
+  --panel: #fafaf9;
+  --line: #e4e4e1;
+  --text: #1d1d1f;
+  --muted: #6e6e73;
+  --accent: #7b1e2b;
+  --font-display: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-script: var(--font-display);
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+header { padding: 32px 16px 20px; max-width: 1180px; margin: 0 auto; display: grid; gap: 6px; }
+.kicker { font-size: .8rem; letter-spacing: .04em; color: var(--muted); margin: 0; }
+.kicker.author { color: var(--text); font-weight: 500; }
+.title { font-weight: 600; font-size: clamp(1.6rem, 5vw, 2.2rem); line-height: 1.15; margin: 6px 0 0; color: var(--text); text-wrap: balance; }
+.script { display: none; }
+.footline { display: none; }
+h1 { font-size: 1.35rem; font-weight: 600; margin: 0; text-wrap: balance; }
+h2 { font-weight: 600; font-size: 1.05rem; margin: 6px 0 2px; text-wrap: balance; }
+.sub { color: var(--muted); font-size: .92rem; margin: 2px 0 0; max-width: 70ch; }
+.badge { font-size: .75rem; color: var(--muted); margin-top: 2px; width: fit-content; }
+nav { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+nav .in { max-width: 1180px; margin: 0 auto; display: flex; justify-content: flex-start; gap: 2px; overflow-x: auto; padding: 0 12px; }
+nav button { background: none; border: 0; color: var(--muted); font-family: var(--font-body); font-size: .92rem; font-weight: 500; padding: 12px 14px; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap; }
+nav button span { font-family: var(--font-mono); font-size: .75rem; margin-right: 6px; color: var(--muted); }
+nav button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+nav button:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+main { max-width: 1180px; margin: 0 auto; padding: 16px; }
+section[hidden], [hidden] { display: none !important; }
+.layout { display: grid; grid-template-columns: 280px 1fr; gap: 16px; align-items: start; }
+@media (max-width: 820px) { .layout { grid-template-columns: 1fr; } }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: grid; gap: 12px; }
+label { font-size: .8rem; font-weight: 500; color: var(--muted); display: grid; gap: 6px; }
+select, input[type="range"] { width: 100%; }
+select { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; font-family: var(--font-body); padding: 7px 8px; font: inherit; font-size: .9rem; text-transform: none; letter-spacing: 0; }
+.seg { display: flex; flex-wrap: wrap; gap: 4px; }
+.seg button { flex: 1 1 auto; background: var(--bg); color: var(--muted); border: 1px solid var(--line); border-radius: 6px; font-family: var(--font-body); padding: 6px 8px; font: inherit; font-size: .82rem; cursor: pointer; text-transform: none; letter-spacing: 0; }
+.seg button[aria-pressed="true"] { color: var(--accent); background: #f6eef0; border-color: var(--accent); font-weight: 600; }
+.check { display: flex; align-items: center; gap: 8px; font-family: var(--font-body); font-size: .88rem; color: var(--text); text-transform: none; letter-spacing: 0; }
+input[type="checkbox"], input[type="range"] { accent-color: var(--accent); }
+.viewer { background: #f5f5f3; border: 1px solid var(--line); border-radius: 8px; position: relative; overflow: hidden; }
+#view3d { width: 100%; height: min(72vh, 640px); display: block; touch-action: none; }
+#ctcanvas { height: min(70vh, 620px); width: auto; max-width: 100%; margin: 0 auto; display: block; image-rendering: pixelated; touch-action: none; }
+.hud { position: absolute; left: 10px; top: 8px; font-family: var(--font-mono); font-size: .75rem; color: var(--muted); pointer-events: none; }
+.viewer:has(#ctcanvas) { background: #000; } .viewer:has(#ctcanvas) .hud { color: #b5b5b5; }
+.legend { display: grid; gap: 4px; }
+.legend canvas { width: 100%; height: 12px; border-radius: 2px; display: block; }
+.legend .ticks { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: .72rem; color: var(--muted); }
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.kpi { border: 1px solid var(--line); border-left: 3px solid var(--line); border-radius: 6px; background: var(--bg); padding: 8px; display: grid; gap: 2px; }
+.kpi b { font-family: var(--font-mono); font-size: 1.15rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.kpi small { color: var(--muted); font-size: .72rem; line-height: 1.3; }
+.kpi.hi { border-left-color: #7b1e2b; } .kpi.mid { border-left-color: #c48474; } .kpi.lo { border-left-color: #cfd3d6; }
+.note { font-size: .8rem; color: var(--muted); margin: 0; }
+table { border-collapse: collapse; width: 100%; font-size: .85rem; }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+td { font-family: var(--font-mono); font-size: .82rem; }
+td:first-child, td:nth-child(2) { font-family: var(--font-body); }
+th { color: var(--muted); font-weight: 500; font-size: .75rem; text-transform: uppercase; letter-spacing: .03em; }
+.scroll { overflow-x: auto; }
+.charts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 820px) { .charts { grid-template-columns: 1fr; } .panel[style*="1fr 1fr"] { grid-template-columns: 1fr !important; } }
+.seg.off { opacity: .35; pointer-events: none; }
+.chart svg { width: 100%; height: auto; display: block; }
+.prose { max-width: 72ch; display: grid; gap: 10px; }
+.prose p, .prose li { margin: 0; color: var(--text); }
+.prose ol, .prose ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.prose code { font-family: var(--font-mono); font-size: .85em; }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.step { border: 1px solid var(--line); border-radius: 0; padding: 10px; display: grid; gap: 4px; background: var(--panel); }
+.step span { font-family: var(--font-display); font-size: .9rem; letter-spacing: .1em; color: var(--muted); }
+.step b { font-family: var(--font-display); font-weight: 400; font-size: 1.05rem; letter-spacing: .06em; text-transform: uppercase; }
+.step small { color: var(--muted); font-size: .78rem; line-height: 1.35; }
+#loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-family: var(--font-mono); font-size: .85rem; }
+.sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+.field { display: grid; grid-template-columns: 1fr 92px; gap: 8px; align-items: center; font-family: var(--font-body); font-size: .85rem; color: var(--text); text-transform: none; letter-spacing: 0; }
+.field input { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-family: var(--font-mono); font-size: .9rem; width: 100%; text-align: right; }
+.field small { grid-column: 1 / -1; color: var(--muted); font-size: .74rem; margin-top: -4px; }
+.btn { background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 11px 14px; font-family: var(--font-body); font-size: .95rem; font-weight: 600; cursor: pointer; }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); font-size: .8rem; padding: 8px 10px; }
+.bar { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; } .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+.derived { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.derived div { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; display: grid; gap: 1px; background: var(--bg); }
+.derived b { font-family: var(--font-mono); font-weight: 500; font-size: 1rem; }
+.derived small { color: var(--muted); font-size: .7rem; line-height: 1.25; }
+#xr { width: 100%; display: block; background: #111; touch-action: none; cursor: crosshair; }
+.sect { font-size: .9rem; font-weight: 600; color: var(--text); margin: 4px 0 -4px; }
+#view3dp { width: 100%; height: min(72vh, 640px); display: block; touch-action: none; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<body>
+<header>
+  <p class="kicker author"><strong>NORLI</strong> par Lina El Amiri et Norddine Khamrichi</p>
+  <p class="kicker">Modèle par éléments finis</p>
+  <h1 class="title">Fémur 3D : prothèse cimentée ou press-fit</h1>
+  <p class="sub">Contraintes dans l'os périprothétique pour huit concepts de tige et dix cotyles (cimentés, non cimentés, double mobilité), avec une épaisseur de ciment réglable. Fémur réel numérisé au scanner, adapté aux mesures d'une radio du patient.</p>
+  <span class="badge">Démonstration · fémur de référence numérisé · résultats non validés</span>
+</header>
+<nav><div class="in" role="tablist">
+  <button role="tab" data-tab="sim" aria-selected="true"><span>1</span>Simulation 3D</button>
+  <button role="tab" data-tab="pat" aria-selected="false"><span>2</span>Patient (radio)</button>
+  <button role="tab" data-tab="ct" aria-selected="false"><span>3</span>Scanner et matériau</button>
+  <button role="tab" data-tab="res" aria-selected="false"><span>4</span>Résultats comparés</button>
+</div></nav>
+
+<main>
+<!-- ============================== SIMULATION 3D ============================== -->
+<section id="tab-sim">
+  <div class="layout" style="grid-template-columns: 320px 1fr">
+    <div class="panel">
+      <label for="s-side">Côté
+        <select id="s-side"><option value="droit">Fémur droit</option><option value="gauche">Fémur gauche</option></select>
+      </label>
+      <label for="s-prof">Qualité osseuse
+        <select id="s-prof"><option value="normal">Os normal</option><option value="osteopenie">Ostéopénie</option><option value="osteoporose">Ostéoporose</option></select>
+      </label>
+      <div id="s-implant"></div>
+      <label>Affichage
+        <div class="seg" id="s-look"><button data-v="stress" aria-pressed="true">Contraintes</button><button data-v="real" aria-pressed="false">Aspect réel</button></div>
+      </label>
+      <label class="check"><input type="checkbox" id="s-cut" checked> Coupe frontale (voir l'intérieur)</label>
+      <label class="check"><input type="checkbox" id="s-stem" checked> Afficher la prothèse</label>
+      <label class="check"><input type="checkbox" id="s-bone" checked> Afficher l'os (décocher pour voir le manteau de ciment)</label>
+      <label for="s-max">Échelle max (MPa) <input type="range" id="s-max" min="10" max="150" step="5" value="60"></label>
+      <div class="legend"><canvas id="leg" width="256" height="12"></canvas><div class="ticks"><span>0</span><span id="leg-mid">30</span><span id="leg-max">60 MPa</span></div></div>
+      <p class="note">Contrainte de Von Mises dans l'os, le ciment et l'interface. <span class="sw" style="background:#b9cddb"></span>ciment <span class="sw" style="background:#c6cbd1;margin-left:8px"></span>tige polie <span class="sw" style="background:#aeb0ad;margin-left:8px"></span>hydroxyapatite <span class="sw" style="background:#f1f0ec;border:1px solid #ccc;margin-left:8px"></span>polyéthylène</p>
+    </div>
+    <div style="display:grid; gap:12px">
+      <div class="viewer"><div id="view3d"></div><div class="hud" id="hud3d"></div><div id="loading">Chargement…</div></div>
+      <div class="seg" id="s-view" style="max-width:420px">
+        <button data-v="implant" aria-pressed="true">Fémur implanté</button>
+        <button data-v="intact" aria-pressed="false">Fémur intact</button>
+      </div>
+      <div class="kpis" id="kpis" style="grid-template-columns: repeat(4, 1fr)"></div>
+      <div class="panel" id="s-info" style="gap:6px"></div>
+      <p class="note">Glisser pour tourner, pincer ou molette pour zoomer. Flèche bordeaux : charge appliquée sur le cotyle. Encastrement à la base de la diaphyse.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PATIENT ============================== -->
+<section id="tab-pat" hidden>
+  <div class="layout" style="grid-template-columns: 340px 1fr">
+    <div class="panel">
+      <p class="sect">1 · RADIO DE FACE</p>
+      <label class="check" for="xr-file" style="display:grid;gap:6px">Charger une radio de face anonymisée (JPG ou PNG)
+        <input type="file" id="xr-file" accept="image/*">
+      </label>
+      <div class="seg">
+        <button class="btn" id="xr-auto" hidden disabled style="flex:1 1 100%">Analyser la radio</button>
+        <button id="xr-manual" disabled>Placer les repères à la main</button>
+      </div>
+      <div class="field" id="xr-scale-row"><span>Taille réelle du repère de calibration (mm)</span><input id="xr-ref" type="number" value="25" step="0.5"></div>
+      <label class="check"><input type="checkbox" id="xr-fine" checked> Déplacement fin (le point bouge moins vite que le doigt)</label>
+      <p class="note" id="xr-help">Charger la radio : les repères sont placés automatiquement, puis toutes les mesures se remplissent. Chaque point peut être déplacé du doigt.</p>
+      <p class="note" id="xr-values" style="color:var(--text)"></p>
+      <p class="note" id="xr-fit"></p>
+
+      <p class="sect">1 bis · RADIO DE PROFIL (FACULTATIF)</p>
+      <label class="check" for="xp-file" style="display:grid;gap:6px">Charger une radio de profil anonymisée
+        <input type="file" id="xp-file" accept="image/*">
+      </label>
+      <button id="xp-manual" class="btn ghost" disabled>Placer les repères à la main</button>
+      <p class="note" id="xp-help">La radio de profil ajuste la largeur antéro-postérieure du fémur et les corticales antérieure et postérieure.</p>
+      <p class="note" id="xp-fit"></p>
+
+      <p class="sect">1 ter · DENSITOMÉTRIE DXA (FACULTATIF)</p>
+      <label class="field" for="dxa-bmd"><span>DMO du col fémoral (g/cm²)</span><input id="dxa-bmd" type="number" step="0.001" min="0.3" max="1.4" placeholder="—"></label>
+      <label class="field" for="dxa-t"><span>ou T-score du col</span><input id="dxa-t" type="number" step="0.1" min="-6" max="4" placeholder="—"></label>
+      <label class="check" id="dxa-read-row" hidden for="dxa-file" style="display:grid;gap:6px">Ou lire le compte rendu DXA (photo ou capture)
+        <input type="file" id="dxa-file" accept="image/*">
+      </label>
+      <p class="note" id="dxa-out"></p>
+
+
+      <p class="sect">2 · MESURES DU PATIENT</p>
+      <label class="field" for="p-alpha"><span>Angle cervico-diaphysaire (°)</span><input id="p-alpha" type="number" value="121" min="90" max="180"></label>
+      <label class="field" for="p-offset"><span>Offset fémoral (mm)</span><input id="p-offset" type="number" value="47" min="1"></label>
+      <label class="field" for="p-headD"><span>Diamètre de la tête (mm)</span><input id="p-headD" type="number" value="48" min="10"></label>
+      <label class="field" for="p-shaftD"><span>Largeur externe de la diaphyse (mm)</span><input id="p-shaftD" type="number" value="31" min="5"><small>10 cm sous le petit trochanter</small></label>
+      <label class="field" for="p-canalD"><span>Largeur du canal à ce niveau (mm)</span><input id="p-canalD" type="number" value="15" min="3"></label>
+      <label class="field" for="p-canalLT"><span>Largeur du canal au petit trochanter (mm)</span><input id="p-canalLT" type="number" value="36" min="3"><small>Sert au type de Dorr</small></label>
+      <div class="derived">
+        <div><b id="d-cti">0,54</b><small>Indice de corticalité</small></div>
+        <div><b id="d-ccr">0,36</b><small>Rapport canal-calcar</small></div>
+        <div><b id="d-dorr">A</b><small>Type de Dorr</small></div>
+      </div>
+      <label for="p-side">Côté opéré
+        <select id="p-side"><option value="droit">Fémur droit</option><option value="gauche">Fémur gauche</option></select>
+      </label>
+      <label for="p-profile">Profil osseux
+        <select id="p-profile"><option value="auto">Automatique (selon l'indice de corticalité)</option><option value="dxa">Selon la DXA</option><option value="normal">Os normal</option><option value="osteopenie">Ostéopénie</option><option value="osteoporose">Ostéoporose</option></select>
+      </label>
+      <p class="sect">3 · IMPLANT ET CHARGE</p>
+      <div id="p-implant"></div>
+    </div>
+    <div style="display:grid; gap:12px">
+      <div class="viewer" id="xr-wrap" hidden><canvas id="xr"></canvas><div class="hud" id="xr-hud"></div></div>
+      <div class="viewer" id="xp-wrap" hidden><canvas id="xp" style="width:100%;display:block;background:#111;touch-action:none;cursor:crosshair"></canvas></div>
+      <div class="viewer"><div id="view3dp"></div><div class="hud" id="hud3dp">Aucun modèle patient calculé</div></div>
+      <div class="seg" id="pv-model" style="max-width:420px">
+        <button data-v="implant" aria-pressed="true">Fémur implanté</button>
+        <button data-v="intact" aria-pressed="false">Fémur intact</button>
+      </div>
+      <div class="kpis" id="kpis-p" style="grid-template-columns: repeat(4, 1fr)"></div>
+      <p class="note">Le dernier modèle calculé est enregistré dans ce navigateur : il alimente les onglets Scanner et matériau et Résultats comparés. Mêmes couleurs, même échelle et mêmes indicateurs que l'onglet Simulation 3D. Profil osseux automatique (hypothèse de démonstration) : indice de corticalité ≥ 0,55 = os normal, 0,47 = ostéopénie, ≤ 0,40 = ostéoporose, interpolé entre ces seuils.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== SCANNER ============================== -->
+<section id="tab-ct" hidden>
+  <div class="layout">
+    <div class="panel">
+      <p class="note" id="c-src" style="color:var(--text)">Aucun modèle patient enregistré.</p>
+      <label>Plan de coupe
+        <div class="seg" id="c-plane">
+          <button data-v="cor" aria-pressed="true">Frontal</button>
+          <button data-v="ax" aria-pressed="false">Axial</button>
+          <button data-v="sag" aria-pressed="false">Sagittal</button>
+        </div>
+      </label>
+      <label for="c-slice">Position <input type="range" id="c-slice" min="0" max="59" value="30"></label>
+      <label>Superposition
+        <div class="seg" id="c-ovl">
+          <button data-v="none" aria-pressed="false">Aucune</button>
+          <button data-v="seg" aria-pressed="false">Segmentation</button>
+          <button data-v="E" aria-pressed="true">Module d'Young</button>
+        </div>
+      </label>
+      <div class="legend" id="c-leg"><canvas id="legE" width="256" height="12"></canvas><div class="ticks"><span>10 MPa</span><span>1 GPa</span><span>20 GPa</span></div></div>
+      <p class="note">Fenêtre osseuse (−200 à 2000 HU). Densité apparente ρ = 0,001 × HU (g/cm³), puis E = 6850 ρ<sup>1,49</sup> MPa (Morgan et al. 2003). Module homogénéisé sur les éléments de 2 mm.</p>
+    </div>
+    <div style="display:grid; gap:8px">
+      <div class="viewer"><canvas id="ctcanvas"></canvas><div class="hud" id="hudct"></div></div>
+      <p class="note" id="ct-probe">Toucher ou survoler l'image pour lire la valeur en HU.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== RÉSULTATS ============================== -->
+<section id="tab-res" hidden>
+  <div style="display:grid; gap:14px">
+    <div class="panel" style="max-width: 760px; gap:8px">
+      <p class="sect" style="margin:0">COMPARAISON DES TIGES POUR LE PATIENT ENREGISTRÉ</p>
+      <p class="note" id="r-src" style="color:var(--text)">Aucun modèle patient enregistré. Calculer un modèle dans l'onglet Patient (radio) : la comparaison des tiges et des épaisseurs de ciment se lance ensuite toute seule, puis le modèle propose une tige, un cotyle et une épaisseur de ciment.</p>
+      <div class="bar"><i id="r-bar"></i></div>
+      <p class="note" id="r-status"></p>
+    </div>
+    <div class="panel" id="r-reco" hidden style="gap:10px"></div>
+    <div class="charts" id="charts" style="grid-template-columns: repeat(2, 1fr)"></div>
+    <p class="note" id="r-legend" hidden><span class="sw" style="background:#7b1e2b"></span>Cimentée <span class="sw" style="background:#8a8d91;margin-left:10px"></span>Non cimentée ostéo-intégrée <span class="sw" style="background:#d8c8b8;margin-left:10px"></span>Non cimentée non intégrée</p>
+    <div class="scroll"><table id="tbl"></table></div>
+  </div>
+</section>
+
+</main>
+<footer style="max-width:1180px;margin:0 auto;padding:8px 16px 28px"><p class="note">Tiges et cotyles : Van Cauter M., PTH – Choix de l'implant, Cliniques universitaires Saint-Luc, UCLouvain, 2013. Loi densité-module : Morgan et al., J Biomech 2003. Géométrie du fémur : Visible Human Project, maillage BMFToolkit (Sreenivasa et Gonzalez-Alvarado, 2018, licence zlib).</p></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+<script src="data2.js"></script>
+<script>
+(function () {
+"use strict";
+const META = window.FEM2_META;
+const BOX = { x: [-50, 106], y: [-36, 36], z: [0, 256] }, BOX3 = BOX, H = 2;
+const NX = 78, NY = 36, NZ = 128, CX = 156, CY = 72, CZ = 256;
+const STEMS = META.stems, CUPS = META.cups;
+const PROF_LBL = { normal: "Os normal", osteopenie: "Ostéopénie", osteoporose: "Ostéoporose" };
+const PROFS = ["normal", "osteopenie", "osteoporose"];
+const LOAD_LBL = { combinee: "Combiné", compression: "Compression 2500 N", flexion: "Flexion 700 N", torsion: "Torsion (500 N antéro-postérieur)" };
+const L_STEM = 2, L_CEM = 3, L_CUP = 5;
+const $ = id => document.getElementById(id);
+const BLOB = pako.ungzip(Uint8Array.from(atob(window.FEM2_BLOB), c => c.charCodeAt(0)));
+const arr = k => { const [o, n] = META.index[k]; return BLOB.subarray(o, o + n); };
+const LOGV = Math.log1p(150), vmOf = q => Math.expm1(q / 255 * LOGV);
+function fmt(v, d = 0) { return v == null || isNaN(v) ? "—" : v.toLocaleString("fr-BE", { minimumFractionDigits: d, maximumFractionDigits: d }); }
+
+// ---------- couleurs ----------
+function ramp(t) { t = Math.min(1, Math.max(0, t));
+  const st = [[213,216,219],[230,207,196],[196,132,116],[142,44,55],[92,18,32]];
+  const x = t * 4, i = Math.min(3, Math.floor(x)), f = x - i;
+  return st[i].map((v, k) => (v + (st[i + 1][k] - v) * f) / 255); }
+function rampE(t) { t = Math.min(1, Math.max(0, t));
+  const stops = [[240,236,232],[214,176,164],[160,70,78],[92,18,32]];
+  const x = t * 3, i = Math.min(2, Math.floor(x)), f = x - i;
+  return stops[i].map((v, k) => v + (stops[i + 1][k] - v) * f); }
+function drawLegend(cv, fn) { const c = cv.getContext("2d");
+  for (let x = 0; x < cv.width; x++) { const col = fn(x / (cv.width - 1)); c.fillStyle = `rgb(${col.map(v => v <= 1 ? Math.round(v * 255) : Math.round(v)).join(",")})`; c.fillRect(x, 0, 1, cv.height); } }
+drawLegend($("leg"), ramp); drawLegend($("legE"), rampE);
+
+// ---------- onglets ----------
+const tabs = document.querySelectorAll("nav button");
+const onTab = {};
+tabs.forEach(b => b.addEventListener("click", () => {
+  tabs.forEach(o => o.setAttribute("aria-selected", o === b ? "true" : "false"));
+  document.querySelectorAll("main > section").forEach(s => s.hidden = s.id !== "tab-" + b.dataset.tab);
+  if (onTab[b.dataset.tab]) onTab[b.dataset.tab]();
+}));
+function segGroup(el, cb) {
+  if (typeof el === "string") el = $(el);
+  el.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+    el.querySelectorAll("button").forEach(o => o.setAttribute("aria-pressed", o === b ? "true" : "false")); cb(b.dataset.v); }));
+}
+
+// ---------- calcul (Web Worker partagé) ----------
+let worker = null, busy = false, jobCb = null;
+const REALMASK = (() => { const bits = pako.ungzip(Uint8Array.from(atob(window.FEM_REALMASK), c => c.charCodeAt(0)));
+  const n = CX * CY * CZ, m = new Uint8Array(n); for (let i = 0; i < n; i++) m[i] = (bits[i >> 3] >> (7 - (i & 7))) & 1; return m; })();
+function newWorker() {
+  const el = document.getElementById("worker-src");
+  const w = el ? new Worker(URL.createObjectURL(new Blob([el.textContent], { type: "text/javascript" }))) : new Worker("fem_worker.js");
+  w.postMessage({ mode: "init", mask: REALMASK });
+  return w;
+}
+function getWorker() {
+  if (worker) return worker;
+  worker = newWorker();
+  worker.onmessage = ev => { const m = ev.data; if (m.type !== "progress") busy = false; if (jobCb) jobCb(m); };
+  worker.onerror = e => { busy = false; if (jobCb) jobCb({ type: "error", message: e.message || "erreur du calcul" }); };
+  return worker;
+}
+function compute(params, cb) {
+  if (busy) { cb({ type: "error", message: "un autre calcul est en cours, réessayer dans un instant" }); return; }
+  busy = true; jobCb = cb;
+  try { getWorker().postMessage(params); } catch (e) { busy = false; cb({ type: "error", message: e.message }); }
+}
+
+// ---------- panneau implant (réutilisé dans 2 onglets) ----------
+function implantPanel(host, pre, onChange) {
+  const stemOpts = Object.entries(STEMS).map(([k, s]) => `<option value="${k}">${s.label} · ${s.cem ? "cimentée" : "non cimentée"}</option>`).join("");
+  const cupGroups = [...new Set(Object.values(CUPS).map(c => c.group))];
+  const cupOpts = cupGroups.map(g => `<optgroup label="${g}">` + Object.entries(CUPS).filter(([, c]) => c.group === g).map(([k, c]) => `<option value="${k}">${c.label}</option>`).join("") + `</optgroup>`).join("");
+  host.innerHTML = `
+    <div style="display:grid;gap:12px">
+    <label for="${pre}-stemtype">Type de tige <select id="${pre}-stemtype">${stemOpts}</select></label>
+    <p class="note" id="${pre}-stemnote"></p>
+    <label id="${pre}-ifrow">Interface os-tige
+      <div class="seg" id="${pre}-iface"><button data-v="integree" aria-pressed="true">Ostéo-intégrée</button><button data-v="faible" aria-pressed="false">Non intégrée</button></div>
+    </label>
+    <label id="${pre}-cemrow" for="${pre}-cem">Épaisseur du ciment : <span id="${pre}-cemv" style="color:var(--text)">2,0 mm</span>
+      <input type="range" id="${pre}-cem" min="1" max="5" step="0.5" value="2">
+    </label>
+    <label for="${pre}-cup">Cotyle <select id="${pre}-cup">${cupOpts}</select></label>
+    <p class="note" id="${pre}-cupnote"></p>
+    <label for="${pre}-load">Chargement <select id="${pre}-load">${Object.entries(LOAD_LBL).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></label>
+    <button class="btn" id="${pre}-run">Calculer</button>
+    <div class="bar"><i id="${pre}-bar"></i></div>
+    <p class="note" id="${pre}-status"></p>
+    </div>`;
+  const st = { stem: "kerboull", iface: "integree", cement: 2, cup: "pe_cim", load: "combinee" };
+  $(`${pre}-stemtype`).value = st.stem;
+  function refresh() {
+    const S = STEMS[st.stem];
+    $(`${pre}-stemnote`).textContent = `${S.code.replace(/\.$/, "")}. ${S.note}`;
+    $(`${pre}-ifrow`).hidden = S.cem; $(`${pre}-cemrow`).hidden = !S.cem;
+    $(`${pre}-cemv`).textContent = fmt(st.cement, 1) + " mm";
+    $(`${pre}-cupnote`).textContent = CUPS[st.cup].note;
+  }
+  $(`${pre}-stemtype`).addEventListener("change", e => { st.stem = e.target.value; refresh(); onChange(); });
+  segGroup(`${pre}-iface`, v => { st.iface = v; onChange(); });
+  $(`${pre}-cem`).addEventListener("input", e => { st.cement = +e.target.value; refresh(); });
+  $(`${pre}-cem`).addEventListener("change", () => onChange());
+  $(`${pre}-cup`).addEventListener("change", e => { st.cup = e.target.value; refresh(); onChange(); });
+  $(`${pre}-load`).addEventListener("change", e => { st.load = e.target.value; onChange(); });
+  refresh();
+  st.set = o => { Object.assign(st, o); $(`${pre}-stemtype`).value = st.stem; $(`${pre}-cem`).value = st.cement; $(`${pre}-cup`).value = st.cup; $(`${pre}-load`).value = st.load;
+    $(`${pre}-iface`).querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === st.iface ? "true" : "false")); refresh(); };
+  return st;
+}
+
+// ---------- visionneuse 3D ----------
+const DIRS = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+const FACES = [[[1,0,0],[1,1,0],[1,1,1],[1,0,1]],[[0,0,0],[0,0,1],[0,1,1],[0,1,0]],[[0,1,0],[0,1,1],[1,1,1],[1,1,0]],
+  [[0,0,0],[1,0,0],[1,0,1],[0,0,1]],[[0,0,1],[1,0,1],[1,1,1],[0,1,1]],[[0,0,0],[0,1,0],[1,1,0],[1,0,0]]];
+const mat3 = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
+const VIEW = { cut: true, prosth: true, bone: true, vmax: 60, mode: "stress" };
+const ph = (color, shininess, specular) => new THREE.MeshPhongMaterial({ color, shininess, specular, side: THREE.DoubleSide });
+const MATS = {
+  bone: new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 14, specular: 0x222222, side: THREE.DoubleSide }),
+  cem: ph(0xb9cddb, 45, 0x555555),          // ciment PMMA
+  intf: ph(0xb98f80, 5, 0x111111),          // tissu fibreux d'interface
+  stem_polished: ph(0xc6cbd1, 120, 0xffffff), // tige cimentée polie
+  stem_ha: ph(0xaeb0ad, 4, 0x151515),       // revêtement d'hydroxyapatite
+  stem_blast: ph(0xa3a8ad, 14, 0x333333),   // titane sablé
+  polished: ph(0xd5d9de, 140, 0xffffff),    // col, cône morse et tête polis
+  pe: ph(0xf1f0ec, 40, 0x555555),
+  cer: ph(0xf6f3ea, 110, 0xffffff),
+  shell: ph(0x9ea3a8, 20, 0x333333),
+  dm: ph(0xf4efe2, 30, 0x444444),          // insert mobile (polyéthylène) de double mobilité
+  screw: ph(0x8f949a, 60, 0xaaaaaa),
+};
+function makeViewer(host) {
+  const rd = new THREE.WebGLRenderer({ antialias: true }); rd.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); host.appendChild(rd.domElement);
+  const sc = new THREE.Scene(); sc.background = new THREE.Color(0xf5f5f3);
+  const cam = new THREE.PerspectiveCamera(32, 1, 1, 3000); cam.up.set(0, 0, 1); cam.position.set(18, -360, 135);
+  const ctl = new THREE.OrbitControls(cam, rd.domElement); ctl.target.set(16, 0, 118); ctl.enableDamping = true; ctl.update();
+  sc.add(new THREE.HemisphereLight(0xffffff, 0xb9b4ab, 0.62));
+  const key = new THREE.DirectionalLight(0xffffff, 0.62); key.position.set(-160, -320, 260); sc.add(key);
+  const fill = new THREE.DirectionalLight(0xfff4e8, 0.28); fill.position.set(260, -120, 60); sc.add(fill);
+  const rim = new THREE.DirectionalLight(0xffffff, 0.30); rim.position.set(40, 300, 200); sc.add(rim);
+  const side = new THREE.Group(); sc.add(side);
+  const grp = new THREE.Group(); side.add(grp); let arrow = null;
+  const V = {
+    resize() { const w = host.clientWidth, h = host.clientHeight; if (!w || !h) return; rd.setSize(w, h, false);
+      rd.domElement.style.width = "100%"; rd.domElement.style.height = "100%"; cam.aspect = w / h; cam.updateProjectionMatrix(); },
+    show(L1, lab2, vmAt, HC, F3, FINE, finish) {
+      while (grp.children.length) { const m = grp.children.pop(); m.geometry.dispose(); }
+      const meshes = buildSmoothMeshes(L1, makeStressSampler(lab2, vmAt), VIEW, FINE, finish || "polished");
+      for (const m of meshes) grp.add(new THREE.Mesh(m.geo, MATS[m.mat]));
+      if (arrow) side.remove(arrow);
+      const fv = new THREE.Vector3(...F3).normalize(), hc = new THREE.Vector3(...HC);
+      arrow = new THREE.ArrowHelper(fv, hc.clone().addScaledVector(fv, -100), 58, 0x7b1e2b, 14, 8); side.add(arrow);
+    },
+    setSide(left) { side.scale.x = left ? -1 : 1; ctl.target.set(left ? -16 : 16, 0, 118); cam.position.x = left ? -18 : 18; ctl.update(); },
+    clear() { while (grp.children.length) { const m = grp.children.pop(); m.geometry.dispose(); } },
+  };
+  (function lp() { ctl.update(); rd.render(sc, cam); requestAnimationFrame(lp); })();
+  window.addEventListener("resize", V.resize);
+  return V;
+}
+// ---------- rendu réaliste : surfaces lisses (surface nets) ----------
+const FX = 156, FY = 72, FZ = 256;
+function blur3(src, nx, ny, nz) {   // flou boîte 3×3×3 séparable
+  let a = src, b = new Float32Array(a.length);
+  const passes = [[ny * nz, nx], [nz, ny], [1, nz]];
+  for (const [stride, n] of passes) {
+    for (let q = 0; q < a.length; q++) {
+      const idx = Math.floor(q / stride) % n;
+      let s = a[q];
+      if (idx > 0) s += a[q - stride];
+      if (idx < n - 1) s += a[q + stride];
+      b[q] = s / 3;
+    }
+    const t = a; a = b; b = t === src ? new Float32Array(a.length) : t;
+  }
+  return a;
+}
+function surfaceNets(field, nx, ny, nz, iso) {
+  const pos = [], idx = [];
+  const vid = new Int32Array(nx * ny * nz).fill(-1);
+  const E = [[0,1],[0,2],[0,4],[1,3],[1,5],[2,3],[2,6],[3,7],[4,5],[4,6],[5,7],[6,7]];
+  const CO = [[0,0,0],[1,0,0],[0,1,0],[1,1,0],[0,0,1],[1,0,1],[0,1,1],[1,1,1]];
+  const g = new Float32Array(8), sy = nz, sx = ny * nz;
+  const off = CO.map(c => c[0] * sx + c[1] * sy + c[2]);
+  for (let x = 0; x < nx - 1; x++) for (let y = 0; y < ny - 1; y++) { let base = x * sx + y * sy;
+    for (let z = 0; z < nz - 1; z++, base++) {
+      let mask = 0;
+      for (let c = 0; c < 8; c++) { g[c] = field[base + off[c]] - iso; if (g[c] > 0) mask |= 1 << c; }
+      if (mask === 0 || mask === 255) continue;
+      let vx = 0, vy = 0, vz = 0, n = 0;
+      for (let e = 0; e < 12; e++) { const a = E[e][0], b = E[e][1];
+        if ((g[a] > 0) === (g[b] > 0)) continue;
+        const t = g[a] / (g[a] - g[b]), A = CO[a], B = CO[b];
+        vx += A[0] + t * (B[0] - A[0]); vy += A[1] + t * (B[1] - A[1]); vz += A[2] + t * (B[2] - A[2]); n++; }
+      vid[base] = pos.length / 3;
+      pos.push(x + vx / n, y + vy / n, z + vz / n);
+    } }
+  for (let x = 1; x < nx - 1; x++) for (let y = 1; y < ny - 1; y++) for (let z = 1; z < nz - 1; z++) {
+    const q = x * sx + y * sy + z, in0 = field[q] > iso;
+    if (in0 !== (field[q + sx] > iso)) quad(vid[q], vid[q - sy], vid[q - sy - 1], vid[q - 1], in0);
+    if (in0 !== (field[q + sy] > iso)) quad(vid[q], vid[q - 1], vid[q - sx - 1], vid[q - sx], in0);
+    if (in0 !== (field[q + 1] > iso)) quad(vid[q], vid[q - sx], vid[q - sx - sy], vid[q - sy], in0);
+  }
+  function quad(a, b, c, d, flip) {
+    if (a < 0 || b < 0 || c < 0 || d < 0) return;
+    if (flip) idx.push(a, b, c, a, c, d); else idx.push(a, c, b, a, d, c);
+  }
+  return { pos, idx };
+}
+// maillage lisse d'un ensemble de codes dans un volume d'étiquettes
+function meshFromLabels(vol, dims, origin, h, codes, cutY) {
+  const [nx, ny, nz] = dims, PX = nx + 2, PY = ny + 2, PZ = nz + 2;
+  const f = new Float32Array(PX * PY * PZ); let any = false;
+  const isCode = new Uint8Array(256); codes.forEach(c => isCode[c] = 1);
+  for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
+    if (cutY && origin[1] + (j + 0.5) * h < 0) continue;
+    for (let k = 0; k < nz; k++) if (isCode[vol[(i * ny + j) * nz + k]]) { f[((i + 1) * PY + j + 1) * PZ + k + 1] = 1; any = true; }
+  }
+  if (!any) return null;
+  const fb = blur3(f, PX, PY, PZ);
+  if (cutY) for (let i = 0; i < PX; i++) for (let j = 0; j < PY; j++) {   // coupe nette sur le plan y = 0
+    if (origin[1] + (j - 1 + 0.5) * h >= 0) continue;
+    for (let k = 0; k < PZ; k++) fb[(i * PY + j) * PZ + k] = 0;
+  }
+  const { pos, idx } = surfaceNets(fb, PX, PY, PZ, 0.5);
+  if (!idx.length) return null;
+  const P = new Float32Array(pos.length);
+  for (let v = 0; v < pos.length; v += 3) {
+    P[v] = origin[0] + (pos[v] - 1 + 0.5) * h; P[v + 1] = origin[1] + (pos[v + 1] - 1 + 0.5) * h; P[v + 2] = origin[2] + (pos[v + 2] - 1 + 0.5) * h; }
+  return { P, idx };
+}
+function buildSmoothMeshes(L1, elemStress, opts, FINE, finish) {
+  const out = [], cut = opts.cut;
+  // os (1 mm), coloré par la contrainte ou par son aspect
+  if (opts.bone) {
+    const m = meshFromLabels(L1, [FX, FY, FZ], [BOX3.x[0], BOX3.y[0], BOX3.z[0]], 1, [1, 9], cut);
+    if (m) {
+      const col = new Float32Array(m.P.length);
+      for (let v = 0; v < m.P.length; v += 3) {
+        const x = m.P[v], y = m.P[v + 1], z = m.P[v + 2]; let c;
+        if (opts.mode === "stress") { const s = elemStress(x, y, z); c = s == null ? [0.85, 0.85, 0.83] : ramp(s / opts.vmax); }
+        else {
+          const n1 = hash3(Math.floor(x * 1.7), Math.floor(y * 1.7), Math.floor(z * 1.7)), n2 = hash3(Math.floor(x / 3), Math.floor(y / 3), Math.floor(z / 3));
+          if (nearestLabel(L1, x, y, z) === 1) { const pore = n1 > 0.62 ? 0.62 : 1; c = [0.80 * pore, 0.68 * pore, 0.52 * pore]; }
+          else { const k = 0.94 + 0.05 * n2 - 0.03 * n1; c = [0.92 * k, 0.87 * k, 0.76 * k]; }
+        }
+        col[v] = c[0]; col[v + 1] = c[1]; col[v + 2] = c[2];
+      }
+      out.push({ ...m, col, mat: "bone" });
+    }
+  }
+  // implants et ciment : volume fin à 0,5 mm si disponible
+  const src = FINE ? [FINE.vol, FINE.dims, FINE.origin, FINE.h] : [L1, [FX, FY, FZ], [BOX3.x[0], BOX3.y[0], BOX3.z[0]], 1];
+  const groups = [["cem", [3, 8]], ["intf", [4]]];
+  if (opts.prosth) groups.push(["stem_" + finish, [2]], ["polished", [10, 11]], ["pe", [5]], ["dm", [12]], ["cer", [7]], ["shell", [6]], ["screw", [13]]);
+  for (const [mat, codes] of groups) { const m = meshFromLabels(src[0], src[1], src[2], src[3], codes, cut); if (m) out.push({ ...m, mat }); }
+  return out.map(m => { const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(m.P, 3));
+    if (m.col) geo.setAttribute("color", new THREE.BufferAttribute(m.col, 3));
+    geo.setIndex(m.idx); geo.computeVertexNormals(); return { geo, mat: m.mat }; });
+}
+function hash3(a, b, c) { let n = (a * 73856093) ^ (b * 19349663) ^ (c * 83492791); n = (n ^ (n >>> 13)) * 1274126177; n = n ^ (n >>> 16); return ((n >>> 0) % 10000) / 10000; }
+function nearestLabel(L1, x, y, z) {
+  const i0 = Math.floor(x - BOX3.x[0]), j0 = Math.floor(y - BOX3.y[0]), k0 = Math.floor(z - BOX3.z[0]);
+  let best = 0;
+  for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) for (let dk = -1; dk <= 1; dk++) {
+    const i = i0 + di, j = j0 + dj, k = k0 + dk;
+    if (i < 0 || j < 0 || k < 0 || i >= FX || j >= FY || k >= FZ) continue;
+    const v = L1[(i * FY + j) * FZ + k]; if (v === 9) return 9; if (v === 1) best = 1;
+  }
+  return best;
+}
+function makeStressSampler(lab2, vmAt) {
+  return (x, y, z) => {
+    const fx = (x - BOX3.x[0]) / 2 - 0.5, fy = (y - BOX3.y[0]) / 2 - 0.5, fz = (z - BOX3.z[0]) / 2 - 0.5;
+    const i0 = Math.floor(fx), j0 = Math.floor(fy), k0 = Math.floor(fz);
+    let s = 0, w = 0;
+    for (let di = 0; di <= 1; di++) for (let dj = 0; dj <= 1; dj++) for (let dk = 0; dk <= 1; dk++) {
+      const i = i0 + di, j = j0 + dj, k = k0 + dk;
+      if (i < 0 || j < 0 || k < 0 || i >= NX || j >= NY || k >= NZ) continue;
+      const e = (i * NY + j) * NZ + k, l = lab2[e];
+      if (!l || l === 2 || l === 5) continue;
+      const ww = (1 - Math.abs(fx - i)) * (1 - Math.abs(fy - j)) * (1 - Math.abs(fz - k)) + 1e-3;
+      s += ww * vmAt(e); w += ww;
+    }
+    return w ? s / w : null;
+  };
+}
+
+const LOADV = { compression: [0, 0, -2500], flexion: [-700, 0, 0], torsion: [0, 500, 0] };
+const loadVec = l => l === "combinee" ? [0, 1, 2].map(d => LOADV.compression[d] + LOADV.flexion[d] + LOADV.torsion[d]) : LOADV[l];
+
+function kpiHTML(m, cem) {
+  const cls = (v, a, b) => v >= b ? "hi" : v >= a ? "mid" : "lo";
+  return `
+    <div class="kpi ${cls(m.ss, 40, 70)}"><b>${fmt(m.ss)} %</b><small>Stress-shielding proximal (baisse vs intact)</small></div>
+    <div class="kpi ${cls(m.dist, 1.05, 1.25)}"><b>× ${fmt(m.dist, 2)}</b><small>Contrainte à la pointe de la tige vs intact</small></div>
+    <div class="kpi ${cls(m.itf, 20, 50)}"><b>${fmt(m.itf, 1)} MPa</b><small>Os au contact de l'implant (99e centile)</small></div>
+    <div class="kpi ${cem ? cls(m.cem, 5, 8) : ""}"><b>${cem ? fmt(m.cem, 1) + " MPa" : "—"}</b><small>${cem ? "Ciment fémoral (99e centile)" : "Pas de ciment fémoral"}</small></div>`;
+}
+const bindView = (redraw) => {
+  segGroup("s-look", v => { VIEW.mode = v; redraw(); });
+  $("s-bone").addEventListener("change", e => { VIEW.bone = e.target.checked; redraw(); });
+  $("s-cut").addEventListener("change", e => { VIEW.cut = e.target.checked; redraw(); });
+  $("s-stem").addEventListener("change", e => { VIEW.prosth = e.target.checked; redraw(); });
+  $("s-max").addEventListener("input", e => { VIEW.vmax = +e.target.value; $("leg-max").textContent = VIEW.vmax + " MPa"; $("leg-mid").textContent = Math.round(VIEW.vmax / 2); redraw(); });
+};
+
+// ================= 1 · SIMULATION 3D (fémur de référence) =================
+const REF = { alpha: 120.6, offset: 47.5, headD: 47.7, shaftD: 31, canalD: 19, cti: 0.39 };
+const L1CACHE = {}; let labWorker = null;
+const V1 = makeViewer($("view3d"));
+$("s-side").addEventListener("change", e => { V1.setSide(e.target.value === "gauche"); simDraw(); });
+let simProf = "normal", simView = "implant", simRes = null;
+const SIM = implantPanel($("s-implant"), "s", () => simChanged());
+function preKey() {
+  const S = STEMS[SIM.stem];
+  if (SIM.cup !== "pe_cim" || SIM.load !== "combinee" || (S.cem && SIM.cement !== 2)) return null;
+  return `${simProf}/${SIM.stem}/${S.cem ? "integree" : SIM.iface}`;
+}
+function simInfo() {
+  const S = STEMS[SIM.stem], C = CUPS[SIM.cup];
+  $("s-info").innerHTML = `<p class="sect" style="margin:0">${S.label}</p>
+    <p class="note" style="color:var(--text)">${S.cem ? "Cimentée, manteau de " + fmt(SIM.cement, 1) + " mm" : "Non cimentée, " + (SIM.iface === "integree" ? "ostéo-intégrée" : "non intégrée")} · ${S.code.replace(/\.$/, "")} · pointe à ${S.tip} mm · angle cervico-diaphysaire ${S.ccd}°</p>
+    <p class="note">${S.note}</p><p class="note">Cotyle : ${C.label}. ${C.note}</p>`;
+}
+function simDraw() {
+  if (!simRes) return;
+  const lab = simView === "implant" ? simRes.labP : simRes.labI, vm = simView === "implant" ? simRes.vmP : simRes.vmI;
+  const L1 = simView === "implant" ? simRes.L1P : simRes.L1I;
+  if (!L1) { V1.clear(); $("hud3d").textContent = "Construction des surfaces de l'os…"; return; }
+  V1.show(L1, lab, simRes.q ? id => vmOf(vm[id]) : id => vm[id], simView === "implant" ? simRes.HCp : simRes.HCi, loadVec(simRes.load),
+    simView === "implant" ? simRes.FINE : null, STEMS[simRes.stem].finish);
+  const S = STEMS[simRes.stem];
+  $("hud3d").textContent = `${PROF_LBL[simRes.prof]} · ${simView === "implant" ? S.label + (S.cem ? " · ciment " + fmt(simRes.cement, 1) + " mm" : "") + " · " + CUPS[simRes.cup].label : "fémur intact"} · ${LOAD_LBL[simRes.load]}`;
+  $("kpis").innerHTML = kpiHTML(simRes.metrics, S.cem);
+}
+function simChanged() {
+  simInfo();
+  const k = preKey();
+  if (k) {
+    const S = STEMS[SIM.stem];
+    simRes = { q: true, labP: arr("lab/" + k), vmP: arr("vm/" + k), labI: arr(`lab/${simProf}/intact`), vmI: arr(`vm/${simProf}/intact`),
+      HCp: META.hcs["hc/" + k], HCi: META.hcs[`hc/${simProf}/intact`], metrics: META.metrics[k],
+      prof: simProf, stem: SIM.stem, cement: 2, cup: SIM.cup, load: SIM.load, key: k };
+    $("s-status").textContent = "Résultat pré-calculé.";
+    $("s-run").disabled = true;
+    const cached = L1CACHE[k];
+    if (cached) { simRes.L1P = cached.P; simRes.L1I = cached.I; simRes.FINE = cached.F; simDraw(); }
+    else {
+      simDraw();
+      const want = k;
+      if (!labWorker) labWorker = newWorker();
+      labWorker.onmessage = ev => { const m = ev.data; if (m.type !== "labels") return;
+        L1CACHE[want] = { P: m.L1P, I: m.L1I, F: m.FINE };
+        if (simRes && simRes.key === want) { simRes.L1P = m.L1P; simRes.L1I = m.L1I; simRes.FINE = m.FINE; simDraw(); } };
+      labWorker.postMessage({ mode: "labels", ...REF, profile: simProf, stem: SIM.stem, iface: SIM.iface, cement: 2, cup: SIM.cup, load: SIM.load });
+    }
+  } else {
+    $("s-run").disabled = busy;
+    $("s-status").textContent = "Paramètres modifiés : appuyer sur Calculer (environ 30 à 60 s).";
+  }
+}
+$("s-prof").addEventListener("change", e => { simProf = e.target.value; simChanged(); });
+segGroup("s-view", v => { simView = v; simDraw(); });
+$("s-run").addEventListener("click", () => {
+  const p = { ...REF, profile: simProf, stem: SIM.stem, iface: SIM.iface, cement: SIM.cement, cup: SIM.cup, load: SIM.load, images: true };
+  $("s-run").disabled = true; $("s-bar").style.width = "2%";
+  compute(p, m => {
+    if (m.type === "progress") { $("s-bar").style.width = (100 * m.frac).toFixed(0) + "%"; $("s-status").textContent = m.step + "…"; return; }
+    $("s-run").disabled = false;
+    if (m.type === "error") { $("s-status").textContent = "Le calcul a échoué : " + m.message; return; }
+    $("s-bar").style.width = "100%";
+    simRes = { q: false, labP: m.labP, vmP: m.vmP, labI: m.labI, vmI: m.vmI, L1P: m.L1P, L1I: m.L1I, FINE: m.FINE, HCp: m.HCp, HCi: m.HCi, metrics: m.metrics,
+      prof: p.profile, stem: p.stem, cement: p.cement, cup: p.cup, load: p.load };
+    $("s-status").textContent = `Calcul terminé en ${fmt(m.info.secs, 0)} s · ${fmt(m.info.nE[1])} éléments.`;
+    simDraw();
+  });
+});
+
+// ================= 2 · PATIENT =================
+const V2 = makeViewer($("view3dp"));
+const VIEW2SIDE = { v: "droit" };
+$("p-side").addEventListener("change", e => { VIEW2SIDE.v = e.target.value; V2.setSide(e.target.value === "gauche"); if (PT) drawCT(); patDraw(); });
+let patRes = null, patView = "implant";
+let PAT_WARN = "";
+const PAT = implantPanel($("p-implant"), "p", () => { $("p-run").disabled = busy; $("p-status").textContent = "Appuyer sur Calculer pour construire le modèle du patient (environ 1 minute)."; });
+$("p-status").textContent = "Appuyer sur Calculer pour construire le modèle du patient (environ 1 minute).";
+const P = { alpha: 130, offset: 42, headD: 46, shaftD: 28, canalD: 13, canalLT: 36 };
+const fields = Object.keys(P);
+function patientGeomParams(cti) {
+  let profile = $("p-profile").value; const dxa = FITSTATE.dxa;
+  if (profile === "dxa" && !dxa) profile = "auto";
+  const fit = currentFit();
+  return { alpha: P.alpha, offset: P.offset, headD: P.headD, shaftD: P.shaftD, canalD: P.canalD, cti, profile: profile === "dxa" ? "normal" : profile,
+    dxa: profile === "dxa" ? { f: dxa.f, bmd: dxa.bmd } : null, fit, fitKey: fitKeyOf(fit) };
+}
+function derived() {
+  fields.forEach(k => P[k] = parseFloat($("p-" + k).value));
+  const cti = (P.shaftD - P.canalD) / P.shaftD, ccr = P.canalD / P.canalLT;
+  $("d-cti").textContent = fmt(cti, 2); $("d-ccr").textContent = fmt(ccr, 2);
+  $("d-dorr").textContent = ccr < 0.5 ? "A" : ccr <= 0.75 ? "B" : "C";
+  return cti;
+}
+fields.forEach(k => $("p-" + k).addEventListener("input", derived)); derived();
+function patDraw() {
+  if (!patRes) return;
+  const lab = patView === "implant" ? patRes.labP : patRes.labI, vm = patView === "implant" ? patRes.vmP : patRes.vmI;
+  V2.show(patView === "implant" ? patRes.L1P : patRes.L1I, lab, id => vm[id], patView === "implant" ? patRes.HCp : patRes.HCi, loadVec(patRes.load),
+    patView === "implant" ? patRes.FINE : null, STEMS[patRes.stem].finish);
+}
+segGroup("pv-model", v => { patView = v; patDraw(); });
+$("p-run").addEventListener("click", () => {
+  const cti = derived();
+  // seules les valeurs physiquement impossibles bloquent le calcul ; les valeurs inhabituelles sont signalées
+  const a1 = (180 - P.alpha) * Math.PI / 180, neckL = P.offset / Math.sin(a1);
+  const impossible = [];
+  if (!(P.alpha > 90 && P.alpha < 180)) impossible.push("l'angle cervico-diaphysaire doit être compris entre 90° et 180°");
+  if (!(P.offset > 0)) impossible.push("l'offset doit être positif");
+  if (!(P.headD > 10)) impossible.push("le diamètre de la tête doit être positif");
+  if (!(P.shaftD > 5)) impossible.push("la largeur de la diaphyse doit être positive");
+  if (!(P.canalD > 0 && P.canalD < P.shaftD - 1)) impossible.push("le canal doit être plus étroit que la diaphyse");
+  if (impossible.length) { $("p-status").textContent = "Calcul impossible : " + impossible.join(" ; ") + "."; return; }
+  const unusual = [];
+  if (neckL < 30 || neckL > 80) unusual.push(`col de ${fmt(neckL)} mm entre la tête et l'axe`);
+  if (P.offset < 30 || P.offset > 55) unusual.push(`offset de ${fmt(P.offset, 1)} mm`);
+  if (P.headD < 38 || P.headD > 58) unusual.push(`tête de ${fmt(P.headD, 1)} mm`);
+  PAT_WARN = unusual.length ? "Valeurs inhabituelles (" + unusual.join(", ") + ") : le modèle les calcule, mais vérifier la calibration et les repères. " : "";
+  const p = { ...patientGeomParams(cti), stem: PAT.stem, iface: PAT.iface, cement: PAT.cement, cup: PAT.cup, load: PAT.load, images: true };
+  $("p-run").disabled = true; $("p-bar").style.width = "2%";
+  compute(p, m => {
+    if (m.type === "progress") { $("p-bar").style.width = (100 * m.frac).toFixed(0) + "%"; $("p-status").textContent = m.step + "…"; return; }
+    $("p-run").disabled = false;
+    if (m.type === "error") { $("p-status").textContent = "Le calcul a échoué : " + m.message; return; }
+    $("p-bar").style.width = "100%";
+    patRes = { ...m, load: p.load, stem: p.stem };
+    const S = STEMS[p.stem];
+    $("p-status").textContent = PAT_WARN + `Calcul terminé en ${fmt(m.info.secs, 0)} s · corticale ${fmt(m.info.huC)} HU, spongieux ${fmt(m.info.huT)} HU.`;
+    $("hud3dp").textContent = `Patient · α ${fmt(P.alpha)}° · offset ${fmt(P.offset)} mm · ${S.label}${S.cem ? " · ciment " + fmt(p.cement, 1) + " mm" : ""} · ${CUPS[p.cup].label}`;
+    $("kpis-p").innerHTML = kpiHTML(m.metrics, S.cem);
+    V2.resize(); patDraw();
+    PT = { ct: m.ct, seg: m.seg, Eq: m.Eq, label: patientLabel(p), huC: m.info.huC, huT: m.info.huT, registered: true };
+    registerPatient(p, m.metrics);
+  });
+});
+// ---------- ajustement du fémur aux contours des radios (face et profil) et densité DXA ----------
+const FITSTATE = { face: null, prof: null, dxa: null };
+const SE_PAGE = (() => {   // silhouettes du fémur de référence (même calcul que le module de calcul)
+  const lat = new Float32Array(CZ).fill(NaN), med = new Float32Array(CZ).fill(NaN), yl = new Float32Array(CZ).fill(NaN), yh = new Float32Array(CZ).fill(NaN);
+  for (let k = 0; k < CZ; k++) { let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    for (let i = 0; i < CX; i++) for (let j = 0; j < CY; j++) if (REALMASK[(i * CY + j) * CZ + k]) {
+      const x = BOX.x[0] + i + 0.5, y = BOX.y[0] + j + 0.5; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (x1 > x0) { lat[k] = x0 - 0.5; med[k] = x1 + 0.5; yl[k] = y0 - 0.5; yh[k] = y1 + 0.5; } }
+  return { lat, med, yl, yh };
+})();
+function grayOf(img) {
+  const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+  const g = c.getContext("2d"); g.drawImage(img, 0, 0, c.width, c.height);
+  const d = g.getImageData(0, 0, c.width, c.height).data, a = new Float32Array(c.width * c.height);
+  for (let i = 0; i < a.length; i++) a[i] = 0.299 * d[4 * i] + 0.587 * d[4 * i + 1] + 0.114 * d[4 * i + 2];
+  return { W: c.width, H: c.height, a, k };
+}
+function sampleG(G, x, y) {
+  const x0 = Math.floor(x), y0 = Math.floor(y); if (x0 < 0 || y0 < 0 || x0 >= G.W - 1 || y0 >= G.H - 1) return NaN;
+  const fx = x - x0, fy = y - y0, i = y0 * G.W + x0;
+  return G.a[i] * (1 - fx) * (1 - fy) + G.a[i + 1] * fx * (1 - fy) + G.a[i + G.W] * (1 - fx) * fy + G.a[i + G.W + 1] * fx * fy;
+}
+function medianFilter(arr, w) { const out = arr.slice(); const h = w >> 1;
+  for (let i = 0; i < arr.length; i++) { const v = []; for (let j = i - h; j <= i + h; j++) if (j >= 0 && j < arr.length && arr[j] === arr[j]) v.push(arr[j]);
+    if (v.length >= 3 && arr[i] === arr[i]) { v.sort((p, q) => p - q); const m = v[v.length >> 1]; out[i] = Math.abs(arr[i] - m) > 3 ? m : arr[i]; } }
+  return out; }
+// détection des bords le long de la diaphyse
+// LM : repères (coordonnées de l'image d'origine), pxmm : pixels par mm (image d'origine)
+// tplLo/tplHi(z) : bords du modèle avant ajustement (mm, sens "lo" = côté négatif de l'axe transverse)
+function detectEdges(G, LM, pxmm, dirToward, zHC, tplLo, tplHi, innerMaxZ) {
+  const k = G.k, pm = pxmm * k;
+  const s1 = [LM.s1[0] * k, LM.s1[1] * k], s2 = [LM.s2[0] * k, LM.s2[1] * k], hc = [LM.hc[0] * k, LM.hc[1] * k];
+  let u = [s1[0] - s2[0], s1[1] - s2[1]]; const un = Math.hypot(...u); u = [u[0] / un, u[1] / un];
+  let v = [-u[1], u[0]]; const tw = [dirToward[0] * k - s1[0], dirToward[1] * k - s1[1]];
+  if (v[0] * tw[0] + v[1] * tw[1] < 0) v = [-v[0], -v[1]];   // v pointe vers le côté "hi" (médial sur la face, postérieur sur le profil)
+  const t0 = (hc[0] - s1[0]) * u[0] + (hc[1] - s1[1]) * u[1];
+  const P0 = [s1[0] + u[0] * t0, s1[1] + u[1] * t0];          // pied de la tête sur l'axe = cote zHC
+  const lo = new Float32Array(CZ).fill(NaN), hi = new Float32Array(CZ).fill(NaN), tlo = new Float32Array(CZ).fill(NaN), thi = new Float32Array(CZ).fill(NaN);
+  const N = 281, step = 0.25, prof = new Float32Array(N), gr = new Float32Array(N);
+  // os clair ou foncé sur cette image ?
+  let inside = 0, outside = 0, cnt = 0;
+  for (let z = 30; z <= 100; z += 10) { const C = [P0[0] + u[0] * (z - zHC) * pm, P0[1] + u[1] * (z - zHC) * pm];
+    const a = sampleG(G, C[0], C[1]), b1 = sampleG(G, C[0] + v[0] * 30 * pm, C[1] + v[1] * 30 * pm), b2 = sampleG(G, C[0] - v[0] * 30 * pm, C[1] - v[1] * 30 * pm);
+    if (a === a && b1 === b1 && b2 === b2) { inside += sampleG(G, C[0] + v[0] * 12 * pm, C[1] + v[1] * 12 * pm); outside += (b1 + b2) / 2; cnt++; } }
+  const sign = inside >= outside ? 1 : -1;
+  for (let z = 4; z <= 160; z++) {
+    const C = [P0[0] + u[0] * (z - zHC) * pm, P0[1] + u[1] * (z - zHC) * pm];
+    let ok = true;
+    for (let i = 0; i < N; i++) { const t = -35 + i * step; const val = sampleG(G, C[0] + v[0] * t * pm, C[1] + v[1] * t * pm); if (val !== val) { ok = false; break; } prof[i] = sign * val; }
+    if (!ok) continue;
+    for (let i = 2; i < N - 2; i++) gr[i] = (prof[i + 2] + prof[i + 1] - prof[i - 1] - prof[i - 2]) / 6;   // dérivée lissée
+    const idx = t => Math.round((t + 35) / step);
+    const best = (a, b, sgn) => { let bi = -1, bv = 0; for (let i = Math.max(2, idx(a)); i <= Math.min(N - 3, idx(b)); i++) { const g = sgn * gr[i]; if (g > bv) { bv = g; bi = i; } } return bi < 0 ? NaN : -35 + bi * step; };
+    const pl = tplLo(z), ph = tplHi(z); if (pl !== pl || ph !== ph) continue;
+    const eL = best(pl - 9, pl + 6, +1), eH = best(ph - 6, ph + 9, -1);
+    if (eL !== eL || eH !== eH || eH - eL < 10) continue;
+    lo[z] = eL; hi[z] = eH;
+    if (z <= innerMaxZ) {
+      const iL = best(eL + 1.5, eL + 12, -1), iH = best(eH - 12, eH - 1.5, +1);
+      if (iL === iL && iH === iH && iH - iL > 3) { tlo[z] = iL - eL; thi[z] = eH - iH; }
+    }
+  }
+  const out = { lo: medianFilter(lo, 9), hi: medianFilter(hi, 9), tlo: medianFilter(tlo, 9), thi: medianFilter(thi, 9), P0, u, v, pm, k };
+  // écart moyen entre le modèle de référence et la radio
+  let e = 0, ne = 0; for (let z = 4; z <= 160; z++) if (out.lo[z] === out.lo[z]) { e += Math.abs(out.lo[z] - tplLo(z)) + Math.abs(out.hi[z] - tplHi(z)); ne += 2; }
+  out.err = ne ? e / ne : NaN; out.n = ne / 2; out.zHC = zHC;
+  return out;
+}
+function zHCof(p) { const sc = p.shaftD / 31, a1 = (180 - p.alpha) * Math.PI / 180; return 150 + 6 * sc + (p.offset / Math.sin(a1)) * Math.cos(a1); }
+function tplFns(p, which) {
+  const s = p.shaftD / 31, O = 150;
+  const at = (arr, z) => { const zs = O + (z - O) / s; const kk = Math.min(CZ - 1, Math.max(0, Math.round(zs - 0.5))); return arr[kk] * s; };
+  return which === "face" ? [z => at(SE_PAGE.lat, z), z => at(SE_PAGE.med, z)] : [z => at(SE_PAGE.yl, z), z => at(SE_PAGE.yh, z)];
+}
+function drawEdges(ctx, E, scale) {   // dessine les contours détectés sur la radio (coordonnées de l'image d'origine)
+  if (!E) return;
+  const toImg = (z, t, zHC) => [(E.P0[0] + E.u[0] * (z - zHC) * E.pm + E.v[0] * t * E.pm) / E.k, (E.P0[1] + E.u[1] * (z - zHC) * E.pm + E.v[1] * t * E.pm) / E.k];
+  const lines = [[E.lo, 0, "#e8a33d"], [E.hi, 0, "#e8a33d"], [E.lo, 1, "#b37ad6"], [E.hi, -1, "#b37ad6"]];
+  ctx.lineWidth = Math.max(2, scale);
+  for (const [arr, inner, col] of lines) { ctx.strokeStyle = col; ctx.beginPath(); let pen = false;
+    for (let z = 4; z <= 160; z++) { let t = arr[z]; if (t !== t) { pen = false; continue; }
+      if (inner === 1) { const th = E.tlo[z]; if (th !== th) { pen = false; continue; } t += th; }
+      if (inner === -1) { const th = E.thi[z]; if (th !== th) { pen = false; continue; } t -= th; }
+      const P = toImg(z, t, E.zHC); if (!pen) { ctx.moveTo(P[0], P[1]); pen = true; } else ctx.lineTo(P[0], P[1]); }
+    ctx.stroke(); }
+}
+function currentFit() {
+  const F = FITSTATE.face, Pf = FITSTATE.prof;
+  if (!F && !Pf) return null;
+  const fit = {};
+  if (F) { fit.lat = F.lo; fit.med = F.hi; fit.tL = F.tlo; fit.tM = F.thi; }
+  if (Pf) { fit.yl = Pf.lo; fit.yh = Pf.hi; fit.tA = Pf.tlo; fit.tP = Pf.thi; }   // y < 0 : antérieur (bord "lo" orienté vers l'avant)
+  return fit;
+}
+function fitKeyOf(fit) { if (!fit) return ""; let h = 0; for (const k of Object.keys(fit).sort()) for (let i = 0; i < fit[k].length; i += 3) { const v = fit[k][i]; h = (h * 31 + (v === v ? Math.round(v * 10) : 7)) | 0; } return "f" + h; }
+function dxaFactor() {
+  const bmd = parseFloat($("dxa-bmd").value), t = parseFloat($("dxa-t").value);
+  let b = bmd > 0 ? bmd : (t === t ? 0.858 + 0.120 * t : NaN);   // référence col fémoral, femme jeune (NHANES III)
+  if (!(b > 0)) return null;
+  return { f: b / 0.858, bmd: b };
+}
+function updateDxa() {
+  const d = dxaFactor(); FITSTATE.dxa = d;
+  $("dxa-out").textContent = d ? `DMO du col retenue : ${fmt(d.bmd, 3)} g/cm², soit ${fmt(100 * d.f)} % de la référence. Le spongieux et la corticale du modèle sont recalés sur cette valeur.` : "";
+  if (d && $("p-profile").value === "auto") { $("p-profile").value = "dxa"; }
+}
+
+window.__femTest = { detectEdges: (...a) => detectEdges(...a), grayOf: (...a) => grayOf(...a), tplFns: (...a) => tplFns(...a), zHCof: (...a) => zHCof(...a) };
+// repère en forme de croix fine : le centre exact reste visible
+function cross(ctx, p, color, size, lw, active) {
+  const g = size * 0.28, L = size;
+  const seg = (x0, y0, x1, y1) => { ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); };
+  for (const [c, w] of [["rgba(255,255,255,0.9)", lw * 2.6], [active ? "#000" : color, lw * 1.2]]) {
+    ctx.strokeStyle = c; ctx.lineWidth = w;
+    seg(p[0] - L, p[1], p[0] - g, p[1]); seg(p[0] + g, p[1], p[0] + L, p[1]);
+    seg(p[0], p[1] - L, p[0], p[1] - g); seg(p[0], p[1] + g, p[0], p[1] + L);
+  }
+}
+// outil radio de face : 22 repères, ajustements de cercles, points contraints à leur niveau, loupe
+(function radio() {
+  const cv = $("xr"), ctx = cv.getContext("2d");
+  let img = null, LM = null, drag = null, GRAY = null, dragPos = null;
+  const DEF = [
+    ["k1", "Bille de calibration, contour 1", "#2a7de1"], ["k2", "Bille de calibration, contour 2", "#2a7de1"], ["k3", "Bille de calibration, contour 3", "#2a7de1"],
+    ["h1", "Tête, contour 1", "#7b1e2b"], ["h2", "Tête, contour 2", "#7b1e2b"], ["h3", "Tête, contour 3", "#7b1e2b"], ["h4", "Tête, contour 4", "#7b1e2b"], ["h5", "Tête, contour 5", "#7b1e2b"],
+    ["nS", "Col, bord supérieur (partie la plus étroite)", "#c0392b"], ["nI", "Col, bord inférieur (partie la plus étroite)", "#c0392b"],
+    ["gt", "Sommet du grand trochanter", "#6d6d6d"], ["lt", "Pointe du petit trochanter", "#16a2b8"],
+    ["a1", "Diaphyse haute, corticale externe latérale", "#1f8a5b"], ["a2", "Diaphyse haute, corticale externe médiale", "#1f8a5b"],
+    ["b1", "Diaphyse basse, corticale externe latérale", "#1f8a5b"], ["b2", "Diaphyse basse, corticale externe médiale", "#1f8a5b"],
+    ["o1", "10 cm sous le petit trochanter : corticale externe latérale", "#d48a1c"], ["o2", "10 cm sous le petit trochanter : corticale externe médiale", "#d48a1c"],
+    ["c1", "10 cm sous le petit trochanter : canal, bord latéral", "#8e44ad"], ["c2", "10 cm sous le petit trochanter : canal, bord médial", "#8e44ad"],
+    ["l1", "Petit trochanter : canal, bord latéral", "#16a2b8"], ["l2", "Petit trochanter : canal, bord médial", "#16a2b8"],
+  ];
+  const LBL = Object.fromEntries(DEF.map(d => [d[0], d]));
+  const say = t => { $("xr-help").textContent = t; };
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  function circle(pts) {   // cercle des moindres carrés (méthode de Kåsa)
+    let sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, sxz = 0, syz = 0, sz = 0; const n = pts.length;
+    for (const [x, y] of pts) { const z = x * x + y * y; sx += x; sy += y; sxx += x * x; syy += y * y; sxy += x * y; sxz += x * z; syz += y * z; sz += z; }
+    const A = [[sxx, sxy, sx], [sxy, syy, sy], [sx, sy, n]], B = [sxz, syz, sz];
+    const det = M => M[0][0] * (M[1][1] * M[2][2] - M[1][2] * M[2][1]) - M[0][1] * (M[1][0] * M[2][2] - M[1][2] * M[2][0]) + M[0][2] * (M[1][0] * M[2][1] - M[1][1] * M[2][0]);
+    const D = det(A); if (Math.abs(D) < 1e-9) return null;
+    const sol = [0, 1, 2].map(c => det(A.map((r, i) => r.map((v, j) => j === c ? B[i] : v))) / D);
+    const cx = sol[0] / 2, cy = sol[1] / 2; return { c: [cx, cy], r: Math.sqrt(Math.max(0, sol[2] + cx * cx + cy * cy)) };
+  }
+  // géométrie dérivée : axe diaphysaire, niveaux de mesure
+  function axis() { const p = mid(LM.a1, LM.a2), q = mid(LM.b1, LM.b2); const u = [q[0] - p[0], q[1] - p[1]], n = Math.hypot(...u); return { p, u: [u[0] / n, u[1] / n] }; }
+  function levelLine(t0) { const A = axis(); const base = [A.p[0] + A.u[0] * t0, A.p[1] + A.u[1] * t0]; return { base, dir: [-A.u[1], A.u[0]] }; }
+  function levels(pxmm) {
+    const A = axis(); const tLT = (LM.lt[0] - A.p[0]) * A.u[0] + (LM.lt[1] - A.p[1]) * A.u[1];
+    return { lt: levelLine(tLT), d10: pxmm ? levelLine(tLT + 100 * pxmm) : null };
+  }
+  const projOn = (L, P) => { const t = (P[0] - L.base[0]) * L.dir[0] + (P[1] - L.base[1]) * L.dir[1]; return [L.base[0] + L.dir[0] * t, L.base[1] + L.dir[1] * t]; };
+  function constrain(pxmm) {   // les points de mesure restent sur leur niveau
+    const L = levels(pxmm);
+    for (const k of ["l1", "l2"]) LM[k] = projOn(L.lt, LM[k]);
+    if (L.d10) for (const k of ["o1", "o2", "c1", "c2"]) LM[k] = projOn(L.d10, LM[k]);
+  }
+  function pxmmOf() { const ref = parseFloat($("xr-ref").value); const C = circle([LM.k1, LM.k2, LM.k3]); return C && ref > 0 ? (2 * C.r) / ref : null; }
+  function compute() {
+    if (!LM) return;
+    const pxmm = pxmmOf(); constrain(pxmm);
+    const H = circle([LM.h1, LM.h2, LM.h3, LM.h4, LM.h5]); if (!H) return;
+    const A = axis(), nm = mid(LM.nS, LM.nI);
+    const a = [H.c[0] - nm[0], H.c[1] - nm[1]], b = A.u;
+    const ang = Math.acos((a[0] * b[0] + a[1] * b[1]) / Math.hypot(...a)) * 180 / Math.PI;
+    const side = H.c[0] > A.p[0] ? "droit" : "gauche";
+    const set = (k, v) => { $("p-" + k).value = (Math.round(v * 10) / 10).toString(); };
+    set("alpha", ang); $("p-side").value = side; $("p-side").dispatchEvent(new Event("change"));
+    let txt = `Angle cervico-diaphysaire ${fmt(ang, 1)}° · fémur ${side}`;
+    if (pxmm) {
+      const off = Math.abs((H.c[0] - A.p[0]) * A.u[1] - (H.c[1] - A.p[1]) * A.u[0]) / pxmm;
+      const vals = { offset: off, headD: 2 * H.r / pxmm, shaftD: dist(LM.o1, LM.o2) / pxmm, canalD: dist(LM.c1, LM.c2) / pxmm, canalLT: dist(LM.l1, LM.l2) / pxmm };
+      for (const [k, v] of Object.entries(vals)) set(k, v);
+      txt += ` · offset ${fmt(vals.offset, 1)} mm · tête Ø ${fmt(vals.headD, 1)} mm · col ${fmt(dist(LM.nS, LM.nI) / pxmm, 1)} mm de large · diaphyse ${fmt(vals.shaftD, 1)} mm · canal ${fmt(vals.canalD, 1)} mm · canal au petit trochanter ${fmt(vals.canalLT, 1)} mm`;
+    } else txt += " · placer les trois points bleus sur la bille de calibration pour obtenir les mm";
+    $("xr-values").textContent = txt;
+    derived();
+    if (pxmm && GRAY) {
+      const p = { alpha: parseFloat($("p-alpha").value), offset: parseFloat($("p-offset").value), shaftD: parseFloat($("p-shaftD").value) };
+      const [lo, hi] = tplFns(p, "face");
+      const LMc = { hc: H.c, s1: A.p, s2: [A.p[0] + A.u[0] * 100, A.p[1] + A.u[1] * 100] };
+      FITSTATE.face = detectEdges(GRAY, LMc, pxmm, H.c, zHCof(p), lo, hi, 112);
+      const F = FITSTATE.face;
+      $("xr-fit").textContent = F.n > 20 ? `Contour du fémur détecté sur ${F.n} mm de hauteur (traits orange : corticale externe, violets : canal). Écart moyen avec le fémur de référence : ${fmt(F.err, 1)} mm, corrigé par l'ajustement 3D.` : "Contour du fémur peu visible sur cette radio : seules les mesures ponctuelles seront utilisées.";
+      if (F.n <= 20) FITSTATE.face = null;
+    }
+  }
+  function draw() {
+    if (!img) return;
+    ctx.drawImage(img, 0, 0);
+    if (!LM) return;
+    const r = Math.max(4, cv.width / 170), lw = Math.max(1.5, cv.width / 700);
+    ctx.lineWidth = lw;
+    const line = (p, q, c, dash) => { ctx.strokeStyle = c; ctx.setLineDash(dash || []); ctx.beginPath(); ctx.moveTo(...p); ctx.lineTo(...q); ctx.stroke(); ctx.setLineDash([]); };
+    const K = circle([LM.k1, LM.k2, LM.k3]); if (K) { ctx.strokeStyle = "#2a7de1"; ctx.beginPath(); ctx.arc(K.c[0], K.c[1], K.r, 0, 7); ctx.stroke(); }
+    const H = circle([LM.h1, LM.h2, LM.h3, LM.h4, LM.h5]);
+    if (H) { ctx.strokeStyle = "#7b1e2b"; ctx.beginPath(); ctx.arc(H.c[0], H.c[1], H.r, 0, 7); ctx.stroke();
+      const nm = mid(LM.nS, LM.nI), d = [nm[0] - H.c[0], nm[1] - H.c[1]];
+      line(H.c, [H.c[0] + d[0] * 1.8, H.c[1] + d[1] * 1.8], "#c0392b"); line(LM.nS, LM.nI, "#c0392b", [6, 4]); }
+    const A = axis();
+    line([A.p[0] - A.u[0] * 0.35 * cv.height, A.p[1] - A.u[1] * 0.35 * cv.height], [A.p[0] + A.u[0] * 0.6 * cv.height, A.p[1] + A.u[1] * 0.6 * cv.height], "#1f8a5b");
+    line(LM.a1, LM.a2, "#1f8a5b", [6, 4]); line(LM.b1, LM.b2, "#1f8a5b", [6, 4]);
+    const L = levels(pxmmOf()), half = 0.12 * cv.width;
+    const lvl = (Lv, c) => line([Lv.base[0] - Lv.dir[0] * half, Lv.base[1] - Lv.dir[1] * half], [Lv.base[0] + Lv.dir[0] * half, Lv.base[1] + Lv.dir[1] * half], c, [3, 5]);
+    lvl(L.lt, "#16a2b8"); if (L.d10) lvl(L.d10, "#d48a1c");
+    drawEdges(ctx, FITSTATE.face, lw);
+    if (H) { ctx.fillStyle = "#7b1e2b"; ctx.beginPath(); ctx.arc(H.c[0], H.c[1], r * 0.7, 0, 7); ctx.fill(); }
+    for (const [k, p] of Object.entries(LM)) { if (!p) continue; cross(ctx, p, LBL[k][2], Math.max(12, cv.width / 55), lw, k === drag); }
+    // loupe pendant le déplacement d'un point
+    if (drag && dragPos) {
+      const zoom = 4, S = Math.round(0.3 * Math.min(cv.width, cv.height)), src = S / zoom;
+      const corner = dragPos[0] < cv.width / 2 ? [cv.width - S - 10, 10] : [10, 10];
+      ctx.save(); ctx.beginPath(); ctx.rect(corner[0], corner[1], S, S); ctx.clip();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, dragPos[0] - src / 2, dragPos[1] - src / 2, src, src, corner[0], corner[1], S, S);
+      ctx.strokeStyle = LBL[drag][2]; ctx.lineWidth = 2;
+      const cx = corner[0] + S / 2, cy = corner[1] + S / 2;
+      ctx.beginPath(); ctx.moveTo(cx - 14, cy); ctx.lineTo(cx + 14, cy); ctx.moveTo(cx, cy - 14); ctx.lineTo(cx, cy + 14); ctx.stroke();
+      ctx.restore(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.strokeRect(corner[0], corner[1], S, S);
+    }
+  }
+  const toImg = ev => { const b = cv.getBoundingClientRect(); return [(ev.clientX - b.left) / b.width * cv.width, (ev.clientY - b.top) / b.height * cv.height]; };
+  let grabOff = [0, 0];
+  cv.addEventListener("pointerdown", ev => { if (!LM) return; const p = toImg(ev);
+    let best = null, bd = Math.max(22, cv.width / 35);
+    for (const [k, q] of Object.entries(LM)) if (q) { const d = dist(p, q); if (d < bd) { bd = d; best = k; } }
+    if (best) { drag = best; grabOff = [LM[best][0] - p[0], LM[best][1] - p[1]]; dragPos = LM[best].slice(); cv.setPointerCapture(ev.pointerId); say("Repère : " + LBL[best][1]); draw(); ev.preventDefault(); } });
+  cv.addEventListener("pointermove", ev => { if (!drag) return; const p = toImg(ev);
+    // déplacement amorti : le point bouge 2 fois moins vite que le doigt, pour viser au pixel près
+    const fine = $("xr-fine").checked ? 0.4 : 1;
+    if (!dragPos.last) dragPos.last = p;
+    LM[drag] = [LM[drag][0] + (p[0] - dragPos.last[0]) * fine, LM[drag][1] + (p[1] - dragPos.last[1]) * fine];
+    dragPos = LM[drag].slice(); dragPos.last = p; draw(); });
+  cv.addEventListener("pointerup", () => { if (drag) { drag = null; dragPos = null; compute(); draw(); } });
+  $("xr-ref").addEventListener("input", () => { compute(); draw(); });
+
+  function template(W, H) {   // positions de départ (fémur droit, tête à droite du fût)
+    const f = (x, y) => [x * W, y * H];
+    return { k1: f(0.80, 0.07), k2: f(0.86, 0.10), k3: f(0.80, 0.13),
+      h1: f(0.62, 0.14), h2: f(0.72, 0.13), h3: f(0.78, 0.22), h4: f(0.70, 0.30), h5: f(0.60, 0.25),
+      nS: f(0.56, 0.22), nI: f(0.58, 0.33), gt: f(0.32, 0.18), lt: f(0.55, 0.42),
+      a1: f(0.38, 0.48), a2: f(0.54, 0.48), b1: f(0.40, 0.85), b2: f(0.54, 0.85),
+      o1: f(0.39, 0.75), o2: f(0.54, 0.75), c1: f(0.43, 0.75), c2: f(0.50, 0.75), l1: f(0.40, 0.42), l2: f(0.52, 0.42) };
+  }
+  $("xr-file").addEventListener("change", e => { const f = e.target.files[0]; if (!f) return;
+    const im = new Image(); im.onload = () => { img = im; LM = null; GRAY = grayOf(im); FITSTATE.face = null; $("xr-wrap").hidden = false;
+      cv.width = im.naturalWidth; cv.height = im.naturalHeight; draw(); $("xr-auto").disabled = false; $("xr-manual").disabled = false;
+      say(SAMPLE ? "Radio chargée : analyse automatique en cours…" : "Radio chargée. Appuyer sur « Placer les repères à la main » puis faire glisser chaque point (une loupe s'affiche pendant le déplacement).");
+      if (SAMPLE) runAuto(); };
+    im.src = URL.createObjectURL(f); });
+  $("xr-manual").addEventListener("click", () => { if (!img) return; LM = template(cv.width, cv.height); compute(); draw();
+    say("Faire glisser chaque point sur son repère anatomique. Une loupe ×4 s'affiche pendant le déplacement ; cocher « Déplacement fin » pour viser au pixel près."); });
+
+  let SAMPLE = null;
+  (async () => { try { if (window.claude && window.claude.use) { const s = await window.claude.use("sample");
+    if (s && (await s.limits()).images) { SAMPLE = s; $("xr-auto").hidden = false; } } } catch (e) {} })();
+  async function runAuto() {
+    if (!SAMPLE || !img) return;
+    $("xr-auto").disabled = true; say("Analyse de la radio en cours (environ 20 à 40 secondes)…");
+    try {
+      const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c2 = document.createElement("canvas"); c2.width = Math.round(img.naturalWidth * k); c2.height = Math.round(img.naturalHeight * k);
+      c2.getContext("2d").drawImage(img, 0, 0, c2.width, c2.height);
+      const blob = await new Promise(r => c2.toBlob(r, "image/jpeg", 0.92));
+      const prompt = `Tu reçois une radiographie de face (incidence antéro-postérieure) de hanche ou de bassin, de ${c2.width} × ${c2.height} pixels (origine en haut à gauche, x vers la droite, y vers le bas).
+Si plusieurs hanches sont visibles, analyse la hanche ${$("p-side").value === "gauche" ? "gauche du patient (à droite de l'image)" : "droite du patient (à gauche de l'image)"}, sauf si une seule est entière.
+Place ces points en pixels, le plus précisément possible, sur les bords nets de l'os :
+- k1, k2, k3 : trois points sur le contour de la bille de calibration (sphère métallique très blanche), bien répartis ; null si absente ;
+- h1 à h5 : cinq points sur le contour de la tête fémorale, répartis sur la partie visible de l'arc ;
+- nS, nI : bords supérieur et inférieur du col à son endroit le plus étroit ;
+- gt : sommet du grand trochanter ; lt : pointe médiale du petit trochanter ;
+- a1, a2 : bords externes latéral et médial de la diaphyse juste sous le petit trochanter ;
+- b1, b2 : bords externes latéral et médial de la diaphyse le plus bas possible sur l'image ;
+- o1, o2 : bords externes latéral et médial de la diaphyse 10 cm sous le petit trochanter (ou le plus bas visible) ; c1, c2 : bords du canal médullaire au même niveau ;
+- l1, l2 : bords latéral et médial du canal médullaire au niveau du petit trochanter.
+Réponds uniquement en JSON avec ces clés, chaque valeur étant [x,y] ou null, plus "confiance":"faible"|"moyenne"|"bonne" et "remarque":"une phrase en français".`;
+      const res = await SAMPLE.json(prompt, { images: [blob], modelTier: "complex" });
+      const out = {}; for (const [key] of DEF) { const v = res[key]; out[key] = Array.isArray(v) && v.length === 2 ? [v[0] / k, v[1] / k] : null; }
+      const tpl = template(cv.width, cv.height); const missing = [];
+      for (const [key] of DEF) if (!out[key]) { out[key] = tpl[key]; missing.push(LBL[key][1]); }
+      LM = out; compute(); draw();
+      say(`Analyse terminée (confiance ${res.confiance || "inconnue"}). ${res.remarque || ""} Vérifier chaque point avec la loupe et le faire glisser si besoin.` + (missing.length ? ` Points à placer à la main : ${missing.join(", ")}.` : ""));
+    } catch (e) { say("L'analyse automatique n'a pas abouti (" + (e.message || e.code || "erreur") + "). Appuyer sur « Placer les repères à la main »."); }
+    $("xr-auto").disabled = false;
+  }
+  $("xr-auto").addEventListener("click", runAuto);
+})();
+
+// radio de profil : largeur antéro-postérieure et corticales antérieure / postérieure
+(function profileRadio() {
+  const cv = $("xp"), ctx = cv.getContext("2d");
+  let img = null, LM = null, drag = null, GRAY = null;
+  const COL = { m1: "#2a7de1", m2: "#2a7de1", hc: "#7b1e2b", s1: "#1f8a5b", s2: "#1f8a5b", ant: "#d48a1c" };
+  const NAME = { m1: "Repère de calibration (bord 1)", m2: "Repère de calibration (bord 2)", hc: "Centre de la tête", s1: "Axe diaphysaire (haut)", s2: "Axe diaphysaire (bas)", ant: "Face antérieure du fémur" };
+  const say = t => { $("xp-help").textContent = t; };
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  function compute() {
+    if (!LM || !GRAY) return;
+    const ref = parseFloat($("xr-ref").value), pxmm = LM.m1 && LM.m2 && ref > 0 ? dist(LM.m1, LM.m2) / ref : null;
+    if (!pxmm) { FITSTATE.prof = null; $("xp-fit").textContent = "Placer le repère de calibration pour exploiter la radio de profil."; return; }
+    const p = { alpha: parseFloat($("p-alpha").value), offset: parseFloat($("p-offset").value), shaftD: parseFloat($("p-shaftD").value) };
+    const [lo, hi] = tplFns(p, "prof");
+    // le côté "hi" du modèle est postérieur : on vise le côté opposé à la face antérieure
+    const post = [2 * LM.s1[0] - LM.ant[0], 2 * LM.s1[1] - LM.ant[1]];
+    const E = detectEdges(GRAY, LM, pxmm, post, zHCof(p), lo, hi, 112);
+    FITSTATE.prof = E.n > 20 ? E : null;
+    $("xp-fit").textContent = E.n > 20 ? `Contour de profil détecté sur ${E.n} mm de hauteur. Écart moyen avec le fémur de référence : ${fmt(E.err, 1)} mm, corrigé par l'ajustement 3D.` : "Contour de profil peu visible : radio de profil non utilisée.";
+  }
+  function draw() {
+    if (!img) return; ctx.drawImage(img, 0, 0); if (!LM) return;
+    const r = Math.max(5, cv.width / 140), lw = Math.max(2, cv.width / 600); ctx.lineWidth = lw;
+    if (LM.m1 && LM.m2) { ctx.strokeStyle = COL.m1; ctx.beginPath(); ctx.moveTo(...LM.m1); ctx.lineTo(...LM.m2); ctx.stroke(); }
+    ctx.strokeStyle = COL.s1; ctx.beginPath(); ctx.moveTo(...LM.s1); ctx.lineTo(...LM.s2); ctx.stroke();
+    drawEdges(ctx, FITSTATE.prof, lw);
+    for (const [k, p] of Object.entries(LM)) { if (!p) continue; cross(ctx, p, COL[k], Math.max(12, cv.width / 55), lw, k === drag); }
+  }
+  const toImg = ev => { const b = cv.getBoundingClientRect(); return [(ev.clientX - b.left) / b.width * cv.width, (ev.clientY - b.top) / b.height * cv.height]; };
+  cv.addEventListener("pointerdown", ev => { if (!LM) return; const p = toImg(ev); let best = null, bd = Math.max(25, cv.width / 30);
+    for (const [k, q] of Object.entries(LM)) if (q) { const d = dist(p, q); if (d < bd) { bd = d; best = k; } }
+    if (best) { drag = best; cv.setPointerCapture(ev.pointerId); say("Repère : " + NAME[best]); ev.preventDefault(); } });
+  cv.addEventListener("pointermove", ev => { if (!drag) return; LM[drag] = toImg(ev); draw(); });
+  cv.addEventListener("pointerup", () => { if (drag) { drag = null; compute(); draw(); } });
+  $("xp-file").addEventListener("change", e => { const f = e.target.files[0]; if (!f) return;
+    const im = new Image(); im.onload = () => { img = im; LM = null; GRAY = grayOf(im); FITSTATE.prof = null; $("xp-wrap").hidden = false;
+      cv.width = im.naturalWidth; cv.height = im.naturalHeight; draw(); $("xp-manual").disabled = false;
+      if (SAMPLE2) auto(); else say("Appuyer sur « Placer les repères » puis les faire glisser sur la radio de profil."); };
+    im.src = URL.createObjectURL(f); });
+  $("xp-manual").addEventListener("click", () => { if (!img) return; const W = cv.width, H = cv.height;
+    LM = { m1: [W * 0.8, H * 0.1], m2: [W * 0.86, H * 0.1], hc: [W * 0.5, H * 0.2], s1: [W * 0.5, H * 0.45], s2: [W * 0.5, H * 0.85], ant: [W * 0.42, H * 0.6] };
+    compute(); draw(); say("Faire glisser chaque point : centre de la tête, axe de la diaphyse, un point sur la face antérieure, bille de calibration."); });
+  let SAMPLE2 = null;
+  (async () => { try { if (window.claude && window.claude.use) { const s = await window.claude.use("sample"); if (s && (await s.limits()).images) SAMPLE2 = s; } } catch (e) {} })();
+  async function auto() {
+    say("Analyse de la radio de profil en cours…");
+    try {
+      const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c2 = document.createElement("canvas"); c2.width = Math.round(img.naturalWidth * k); c2.height = Math.round(img.naturalHeight * k);
+      c2.getContext("2d").drawImage(img, 0, 0, c2.width, c2.height);
+      const blob = await new Promise(r => c2.toBlob(r, "image/jpeg", 0.92));
+      const res = await SAMPLE2.json(`Tu reçois une radiographie de profil de hanche ou de fémur proximal, de ${c2.width} × ${c2.height} pixels (origine en haut à gauche, x vers la droite, y vers le bas).
+Repère en pixels : m1, m2 les deux extrémités d'un diamètre de la bille de calibration (null si absente) ; hc le centre de la tête fémorale ; s1 et s2 deux points sur l'axe de la diaphyse (milieu entre les corticales antérieure et postérieure), s1 juste sous le petit trochanter, s2 le plus bas possible ; ant un point sur la face antérieure de la diaphyse, au milieu de sa hauteur visible.
+Réponds uniquement en JSON : {"m1":[x,y]|null,"m2":[x,y]|null,"hc":[x,y],"s1":[x,y],"s2":[x,y],"ant":[x,y],"confiance":"faible"|"moyenne"|"bonne","remarque":"une phrase en français"}.`, { images: [blob], modelTier: "complex" });
+      const out = {}; for (const key of Object.keys(NAME)) { const v = res[key]; out[key] = Array.isArray(v) && v.length === 2 ? [v[0] / k, v[1] / k] : null; }
+      for (const req of ["hc", "s1", "s2", "ant"]) if (!out[req]) throw new Error("repère « " + NAME[req] + " » non trouvé");
+      if (!out.m1) { out.m1 = [cv.width * 0.8, cv.height * 0.1]; out.m2 = [cv.width * 0.86, cv.height * 0.1]; }
+      LM = out; compute(); draw();
+      say(`Analyse terminée (confiance ${res.confiance || "inconnue"}). ${res.remarque || ""} Vérifier les points et les faire glisser si besoin.`);
+    } catch (e) { say("L'analyse automatique n'a pas abouti (" + (e.message || e.code || "erreur") + "). Appuyer sur « Placer les repères »."); }
+  }
+})();
+// DXA : densité minérale osseuse du col fémoral
+(function dxa() {
+  ["dxa-bmd", "dxa-t"].forEach(id => $(id).addEventListener("input", updateDxa));
+  let S3 = null;
+  (async () => { try { if (window.claude && window.claude.use) { const s = await window.claude.use("sample"); if (s && (await s.limits()).images) { S3 = s; $("dxa-read-row").hidden = false; } } } catch (e) {} })();
+  $("dxa-file").addEventListener("change", async e => { const f = e.target.files[0]; if (!f || !S3) return;
+    $("dxa-out").textContent = "Lecture du compte rendu DXA…";
+    try {
+      const res = await S3.json(`Voici un compte rendu d'ostéodensitométrie (DXA). Relève pour la hanche analysée la densité minérale osseuse (DMO, g/cm²) et le T-score du col fémoral, et si présents ceux de la hanche totale. Réponds uniquement en JSON : {"col_dmo":nombre|null,"col_t":nombre|null,"totale_dmo":nombre|null,"totale_t":nombre|null,"cote":"droit"|"gauche"|null,"remarque":"une phrase en français"}.`, { images: [f], modelTier: "default" });
+      if (res.col_dmo) $("dxa-bmd").value = res.col_dmo; if (res.col_t != null) $("dxa-t").value = res.col_t;
+      updateDxa();
+      $("dxa-out").textContent += ` (lu sur le compte rendu${res.cote ? ", hanche " + res.cote : ""}${res.totale_t != null ? ", T-score hanche totale " + res.totale_t : ""}). Vérifier les valeurs.`;
+    } catch (err) { $("dxa-out").textContent = "Lecture impossible : saisir la DMO ou le T-score du col à la main."; }
+  });
+})();
+
+bindView(() => { simDraw(); patDraw(); });
+
+// ================= 3 · SCANNER (modèle patient) =================
+let PT = null;
+const C = { plane: "cor", ovl: "E", slice: 30 };
+const ctc = $("ctcanvas"), sl = $("c-slice");
+function patientLabel(p) { return `fémur ${(p.side || VIEW2SIDE.v) === "gauche" ? "gauche" : "droit"}${p.fit ? " ajusté aux contours de la radio" + (p.fit.yl ? " de face et de profil" : "") : ""}${p.dxa ? ", densité DXA " + fmt(p.dxa.bmd, 3) + " g/cm²" : ""} · α ${fmt(p.alpha)}° · offset ${fmt(p.offset)} mm · tête Ø ${fmt(p.headD)} mm · diaphyse ${fmt(p.shaftD)} mm · canal ${fmt(p.canalD)} mm · ${p.dxa ? "" : p.profile === "auto" ? "profil auto (IC " + fmt(p.cti, 2) + ")" : PROF_LBL[p.profile]}`; }
+function planeDims() { return C.plane === "cor" ? { w: CX, h: CZ, n: CY } : C.plane === "ax" ? { w: CX, h: CY, n: CZ } : { w: CY, h: CZ, n: CX }; }
+function hash(n) { n = (n ^ 61) ^ (n >>> 16); n = n + (n << 3); n = n ^ (n >>> 4); n = Math.imul(n, 0x27d4eb2d); n = n ^ (n >>> 15); return (n >>> 0) / 4294967295; }
+function voxel(px, py) { const L = VIEW2SIDE.v === "gauche"; const ix = L ? CX - 1 - px : px;
+  return C.plane === "cor" ? [ix, C.slice, CZ - 1 - py] : C.plane === "ax" ? [ix, CY - 1 - py, C.slice] : [C.slice, px, CZ - 1 - py]; }
+let geomWorker = null;
+function ensureCT() {
+  if (PT) { drawCT(); return; }
+  $("c-src").textContent = "Construction du fémur à partir des mesures saisies…";
+  if (!geomWorker) geomWorker = newWorker();
+  const cti = derived();
+  const p = { mode: "geom", ...patientGeomParams(cti) };
+  geomWorker.onmessage = ev => { const m = ev.data; if (m.type !== "geom") return;
+    PT = { ct: m.ct, seg: m.seg, Eq: m.Eq, label: patientLabel(p), huC: m.info.huC, huT: m.info.huT, registered: false }; drawCT(); };
+  geomWorker.postMessage(p);
+}
+function drawCT() {
+  if (!PT) return;
+  $("c-src").textContent = (PT.registered ? "Modèle patient enregistré : " : "Aperçu des mesures saisies (modèle pas encore calculé) : ") + PT.label + ` · corticale ${fmt(PT.huC)} HU, spongieux ${fmt(PT.huT)} HU.`;
+  const d = planeDims(); ctc.width = d.w; ctc.height = d.h;
+  const ctx = ctc.getContext("2d"), img = ctx.createImageData(d.w, d.h);
+  const ct = PT.ct, seg = PT.seg, E = PT.Eq;
+  for (let py = 0; py < d.h; py++) for (let px = 0; px < d.w; px++) {
+    const [i, j, k] = voxel(px, py), id = (i * CY + j) * CZ + k;
+    const hu = ct[id] / 255 * 3200 - 1000 + (hash(id) + hash(id * 7 + 3) - 1) * 70;
+    let g = Math.min(255, Math.max(0, (hu + 200) / 2200 * 255)), r = g, gg = g, b = g;
+    if (C.ovl === "seg" && seg[id]) { r = g * 0.55 + 240 * 0.45; gg = g * 0.55 + 166 * 0.45; b = g * 0.55 + 64 * 0.45; }
+    if (C.ovl === "E") { const q = E[((Math.min(NX - 1, i >> 1)) * NY + Math.min(NY - 1, j >> 1)) * NZ + Math.min(NZ - 1, k >> 1)];
+      if (q > 0) { const t = (q / 255 * 5 - 1) / (Math.log10(20000) - 1), c = rampE(t); r = c[0]; gg = c[1]; b = c[2]; } }
+    const o = (py * d.w + px) * 4; img.data[o] = r; img.data[o + 1] = gg; img.data[o + 2] = b; img.data[o + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const mm = C.plane === "cor" ? BOX.y[0] + C.slice + 0.5 : C.plane === "ax" ? BOX.z[0] + C.slice + 0.5 : BOX.x[0] + C.slice + 0.5;
+  $("hudct").textContent = `Plan ${{ cor: "frontal", ax: "axial", sag: "sagittal" }[C.plane]} · ${fmt(mm, 1)} mm · voxel 1 mm`;
+  $("c-leg").style.display = C.ovl === "E" ? "grid" : "none";
+}
+function setSliceRange(reset) { const n = planeDims().n; sl.max = n - 1;
+  if (reset) C.slice = C.plane === "ax" ? 170 : C.plane === "sag" ? 50 : Math.floor(n / 2);
+  C.slice = Math.min(C.slice, n - 1); sl.value = C.slice; }
+segGroup("c-plane", v => { C.plane = v; setSliceRange(true); drawCT(); });
+segGroup("c-ovl", v => { C.ovl = v; drawCT(); });
+sl.addEventListener("input", e => { C.slice = +e.target.value; drawCT(); });
+ctc.addEventListener("pointermove", ev => { if (!PT) return; const r = ctc.getBoundingClientRect(), d = planeDims();
+  const px = Math.floor((ev.clientX - r.left) / r.width * d.w), py = Math.floor((ev.clientY - r.top) / r.height * d.h);
+  if (px < 0 || py < 0 || px >= d.w || py >= d.h) return;
+  const [i, j, k] = voxel(px, py), hu = PT.ct[(i * CY + j) * CZ + k] / 255 * 3200 - 1000;
+  const E = PT.Eq[((Math.min(NX - 1, i >> 1)) * NY + Math.min(NY - 1, j >> 1)) * NZ + Math.min(NZ - 1, k >> 1)];
+  $("ct-probe").textContent = `Voxel (${i}, ${j}, ${k}) : ${fmt(hu)} HU` + (E > 0 ? `, E ≈ ${fmt(Math.pow(10, E / 255 * 5))} MPa (élément 2 mm)` : ""); });
+// les mesures changent : l'aperçu n'est plus valable s'il n'est pas enregistré
+fields.concat(["profile"]).forEach(k => $("p-" + k).addEventListener("change", () => { if (PT && !PT.registered) PT = null; }));
+setSliceRange(true);
+
+// ================= 4 · RÉSULTATS =================
+const CONFIGS = [];
+Object.entries(STEMS).forEach(([k, s]) => { if (s.cem) CONFIGS.push([k, "integree"]); else { CONFIGS.push([k, "integree"]); CONFIGS.push([k, "faible"]); } });
+const cfgLabel = ([k, i]) => STEMS[k].label.replace("Type ", "") + (STEMS[k].cem ? "" : i === "integree" ? " · intégrée" : " · non intégrée");
+const cfgColor = ([k, i]) => STEMS[k].cem ? "#7b1e2b" : i === "integree" ? "#8a8d91" : "#d8c8b8";
+let BATCH = {};   // résultats de la comparaison pour le patient enregistré
+function hbar(title, unit, key, prof, ref) {
+  const rows = CONFIGS.filter(c => BATCH[c.join("/")]).map(c => [c, BATCH[c.join("/")][key]]).filter(r => r[1] != null);
+  if (!rows.length) return "";
+  const W = 520, lw = 190, rowH = 22, pt = 34, Hh = pt + rows.length * rowH + 24;
+  let vmax = Math.max(...rows.map(r => r[1]), ref || 0) * 1.1;
+  const step = vmax > 60 ? 20 : vmax > 25 ? 10 : vmax > 12 ? 5 : vmax > 5 ? 1 : vmax > 2.5 ? 0.5 : 0.25; vmax = Math.ceil(vmax / step) * step;
+  const x = v => lw + (W - lw - 40) * v / vmax;
+  let s = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${title}"><text x="0" y="16" fill="#1d1d1f" font-size="14" font-weight="600" font-family="IBM Plex Sans, sans-serif">${title}</text>`;
+  s += `<text x="${W}" y="16" fill="#6e6e73" font-size="10" text-anchor="end" font-family="IBM Plex Sans, sans-serif">${unit}</text>`;
+  for (let v = 0; v <= vmax + 1e-9; v += step) s += `<line x1="${x(v)}" x2="${x(v)}" y1="${pt - 6}" y2="${Hh - 20}" stroke="#e4e4e1"/><text x="${x(v)}" y="${Hh - 6}" fill="#6e6e73" font-size="10" text-anchor="middle" font-family="IBM Plex Mono, monospace">${fmt(v, step < 1 ? 2 : 0)}</text>`;
+  if (ref) s += `<line x1="${x(ref)}" x2="${x(ref)}" y1="${pt - 6}" y2="${Hh - 20}" stroke="#7b1e2b" stroke-dasharray="4 3"/>`;
+  rows.forEach(([c, v], r) => { const y = pt + r * rowH;
+    s += `<text x="${lw - 8}" y="${y + 14}" fill="#1d1d1f" font-size="11" text-anchor="end" font-family="IBM Plex Sans, sans-serif">${cfgLabel(c)}</text>`;
+    s += `<rect x="${lw}" y="${y + 3}" width="${Math.max(1, x(v) - lw)}" height="${rowH - 7}" fill="${cfgColor(c)}"/>`;
+    s += `<text x="${x(v) + 5}" y="${y + 14}" fill="#6e6e73" font-size="10" font-family="IBM Plex Mono, monospace">${fmt(v, v < 10 ? 2 : 0)}</text>`; });
+  return `<div class="panel chart">${s}</svg></div>`;
+}
+function drawResults() {
+  drawReco();
+  const any = CONFIGS.some(c => BATCH[c.join("/")]);
+  $("r-legend").hidden = !any;
+  if (!any) { $("charts").innerHTML = ""; $("tbl").innerHTML = ""; return; }
+  const cemTxt = SAVED ? fmt(SAVED.implant.cement, 1) + " mm" : "";
+  $("charts").innerHTML = hbar("Stress-shielding proximal", "% de baisse vs intact", "ss", null, 0) +
+    hbar("Contrainte à la pointe", "ratio vs intact (pointillé = 1)", "dist", null, 1) +
+    hbar("Os au contact de l'implant", "MPa, 99e centile", "itf", null, 0) +
+    hbar("Ciment fémoral (" + cemTxt + ")", "MPa, 99e centile", "cem", null, 0);
+  let t = `<thead><tr><th>Tige</th><th>Fixation</th><th>Stress-shielding</th><th>Pointe / intact</th><th>Os au contact (MPa)</th><th>Ciment (MPa)</th></tr></thead><tbody>`;
+  CONFIGS.forEach(c => { const m = BATCH[c.join("/")], S = STEMS[c[0]];
+    t += `<tr><td>${S.label}</td><td>${S.cem ? "Cimentée" : c[1] === "integree" ? "Non cimentée, intégrée" : "Non cimentée, non intégrée"}</td>` +
+      (m ? `<td>${fmt(m.ss)} %</td><td>× ${fmt(m.dist, 2)}</td><td>${fmt(m.itf, 1)}</td><td>${fmt(m.cem, 1)}</td>` : `<td colspan="4" style="text-align:right;color:var(--muted)">en attente</td>`) + `</tr>`; });
+  $("tbl").innerHTML = t + "</tbody>";
+}
+
+// ---------- recommandation (modèle + règles de la synthèse Van Cauter) ----------
+const THICK = [1, 2, 3, 4, 5];
+function boneClass(p) {
+  if (p.dxa && p.dxa.bmd) { const T = (p.dxa.bmd - 0.858) / 0.120; return T <= -2.5 ? "osteoporose" : T < -1 ? "osteopenie" : "normal"; }   // seuils OMS
+  if (p.profile && p.profile !== "auto") return p.profile;
+  return p.cti >= 0.55 ? "normal" : p.cti >= 0.47 ? "osteopenie" : "osteoporose";
+}
+function dorrOf(p) { const ccr = p.canalD / (p.canalLT || 36); return ccr < 0.5 ? "A" : ccr <= 0.75 ? "B" : "C"; }
+// score de risque de fracture périprothétique (plus bas = mieux), normalisé sur les configurations candidates
+const W_RISK = { dist_abs: 0.35, itf: 0.30, ss: 0.25, cem: 0.10 };
+function scoreAll(cands) {
+  const val = (m, k) => k === "ss" ? Math.max(0, m.ss) : (m[k] == null ? null : m[k]);
+  const rng = {};
+  for (const k of Object.keys(W_RISK)) { const v = cands.map(c => val(c.m, k)).filter(x => x != null);
+    rng[k] = [Math.min(...v), Math.max(...v)]; }
+  for (const c of cands) { let s = 0, w = 0;
+    for (const [k, wk] of Object.entries(W_RISK)) { const v = val(c.m, k); if (v == null) continue;
+      const [a, b] = rng[k]; s += wk * (b > a ? (v - a) / (b - a) : 0); w += wk; }
+    c.score = 100 * s / w; }
+  return cands.sort((a, b) => a.score - b.score);
+}
+function recommend() {
+  if (!SAVED) return null;
+  const p = SAVED.params, bc = boneClass(p), dorr = dorrOf(p), poor = bc === "osteoporose" || dorr === "C";
+  const reasons = [], excluded = [];
+  const cands = [];
+  for (const c of CONFIGS) {
+    const m = BATCH[c.join("/")]; if (!m) continue;
+    const S = STEMS[c[0]];
+    if (!S.cem && c[1] === "faible") continue;   // une interface non intégrée est un échec, pas un choix
+    if (!S.cem && poor) { excluded.push(S.label + " (os ostéoporotique ou fémur Dorr C : contre-indication au non cimenté)"); continue; }
+    if (c[0] === "short" && bc !== "normal") { excluded.push("Short stem (réservée à un os spongieux de bonne qualité)"); continue; }
+    cands.push({ key: c.join("/"), stem: c[0], m });
+  }
+  if (!cands.length) return { pending: true };
+  scoreAll(cands);
+  const best = cands[0], S = STEMS[best.stem];
+  // épaisseur du ciment : balayage pour la meilleure tige cimentée
+  let thick = null, thickRows = [];
+  const bestCem = cands.find(c => STEMS[c.stem].cem);
+  if (bestCem) {
+    thickRows = THICK.map(t => ({ t, m: BATCH[`${bestCem.stem}/integree@${t}`] || (t === SAVED.implant.cement ? bestCem.m : null) })).filter(r => r.m);
+    if (thickRows.length) {
+      const ok = thickRows.filter(r => r.t >= 2);   // manteau d'au moins 2 mm (recommandation classique)
+      const sc = scoreAll(ok.map(r => ({ key: r.t, stem: bestCem.stem, m: r.m, t: r.t })));
+      thick = sc.length ? sc[0].t : null;
+    }
+  }
+  // cotyle : le modèle ne calcule pas le bassin, on applique les règles de la synthèse
+  let cup, cupWhy;
+  if (poor) { cup = "pressfit_vis"; cupWhy = "os de mauvaise qualité : cupule press-fit complétée par des vis (ou cotyle PE cimenté)"; }
+  else { cup = "pressfit"; cupWhy = "os de bonne qualité : cupule press-fit hémisphérique ostéo-intégrée"; }
+  reasons.push(`Qualité osseuse retenue : ${PROF_LBL[bc].toLowerCase()} (${p.dxa ? "DXA : DMO du col " + fmt(p.dxa.bmd, 3) + " g/cm², T-score " + fmt((p.dxa.bmd - 0.858) / 0.12, 1) : "indice de corticalité " + fmt(p.cti, 2)}), fémur de type Dorr ${dorr}.`);
+  if (poor) reasons.push("Selon la synthèse, l'ostéoporose contre-indique les tiges non cimentées : seules les tiges cimentées sont comparées.");
+  return { best, S, cands, thick, thickRows, bestCem, cup, cupWhy, reasons, excluded, bc, poor };
+}
+function drawReco() {
+  const el = $("r-reco"); const R = recommend();
+  if (!R) { el.hidden = true; return; }
+  el.hidden = false;
+  if (R.pending) { el.innerHTML = `<p class="sect" style="margin:0">Recommandation du modèle</p><p class="note">En attente des premiers calculs…</p>`; return; }
+  const S = R.S, cem = S.cem;
+  const sweepDone = !R.bestCem || THICK.every(t => BATCH[`${R.bestCem.stem}/integree@${t}`] || t === SAVED.implant.cement);
+  const rows = R.cands.slice(0, 6).map((c, i) => { const s = STEMS[c.stem];
+    return `<tr><td>${i + 1}</td><td>${s.label}</td><td>${s.cem ? "Cimentée" : "Non cimentée"}</td><td>${fmt(c.score)}</td><td>× ${fmt(c.m.dist, 2)}</td><td>${fmt(c.m.itf, 1)}</td><td>${fmt(c.m.ss)} %</td></tr>`; }).join("");
+  el.innerHTML = `
+    <p class="sect" style="margin:0">Recommandation du modèle pour ce patient (fémur ${SAVED.params.side === "gauche" ? "gauche" : "droit"})</p>
+    <div class="kpis" style="grid-template-columns: repeat(3, 1fr)">
+      <div class="kpi hi"><b style="font-family:var(--font-body);font-size:1.05rem">${S.label}</b><small>Tige ${cem ? "cimentée" : "non cimentée, ostéo-intégrée"} · ${S.code}</small></div>
+      <div class="kpi ${cem ? "mid" : "lo"}"><b style="font-family:var(--font-body);font-size:1.05rem">${cem ? (R.thick ? fmt(R.thick, 0) + " mm de ciment" : "épaisseur en cours de calcul") : "Sans ciment"}</b><small>${cem ? (sweepDone ? "Épaisseur la moins exposée parmi 2 à 5 mm" : "Balayage 1 à 5 mm en cours…") : "Fixation par press-fit et ostéo-intégration"}</small></div>
+      <div class="kpi lo"><b style="font-family:var(--font-body);font-size:1.05rem">${CUPS[R.cup].label}</b><small>${R.cupWhy}</small></div>
+    </div>
+    ${R.reasons.map(r => `<p class="note" style="color:var(--text)">${r}</p>`).join("")}
+    ${R.excluded.length ? `<p class="note">Écartées : ${[...new Set(R.excluded)].join(" ; ")}.</p>` : ""}
+    <div class="scroll"><table><thead><tr><th>Rang</th><th>Tige</th><th>Fixation</th><th>Score de risque</th><th>Pointe / intact</th><th>Os au contact (MPa)</th><th>Stress-shielding</th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${R.thickRows.length > 1 ? `<p class="note">Épaisseur du ciment pour ${STEMS[R.bestCem.stem].label} : ` + R.thickRows.map(r => `${r.t} mm → ciment ${fmt(r.m.cem, 1)} MPa, os au contact ${fmt(r.m.itf, 1)} MPa`).join(" · ") + `.</p>` : ""}
+    <p class="note">Score de risque (0 = configuration la moins exposée, 100 = la plus exposée parmi celles comparées) : 35 % contrainte osseuse à la pointe de la tige, 30 % contrainte dans l'os au contact de l'implant, 25 % stress-shielding proximal (perte osseuse à long terme), 10 % contrainte dans le ciment. Ces poids sont un choix de démonstration. Le cotyle est proposé d'après les règles de la synthèse, car le bassin n'est pas modélisé. Résultat d'un modèle non validé : aide à la discussion, pas une indication opératoire.</p>`;
+}
+
+// ---------- enregistrement du modèle patient et comparaison automatique ----------
+const STORE = "femur3d-patient-v1";
+let SAVED = null, batchWorker = null;
+function packFit(f) { if (!f) return null; const o = {}; for (const k in f) o[k] = Array.from(f[k], v => v === v ? Math.round(v * 100) / 100 : null); return o; }
+function unpackFit(f) { if (!f) return null; const o = {}; for (const k in f) o[k] = Float32Array.from(f[k], v => v == null ? NaN : v); return o; }
+function saveStore() { try { localStorage.setItem(STORE, JSON.stringify({ ...SAVED, params: { ...SAVED.params, fit: packFit(SAVED.params.fit) }, batch: BATCH })); } catch (e) {} }
+function srcText() {
+  const p = SAVED.params, im = SAVED.implant;
+  return `Patient enregistré le ${new Date(SAVED.time).toLocaleString("fr-BE")} : ${patientLabel(p)}. Comparaison avec : cotyle ${CUPS[im.cup].label}, ciment ${fmt(im.cement, 1)} mm pour les tiges cimentées, chargement ${LOAD_LBL[im.load].toLowerCase()}.`;
+}
+function registerPatient(p, metrics) {
+  const params = { alpha: p.alpha, offset: p.offset, headD: p.headD, shaftD: p.shaftD, canalD: p.canalD, cti: p.cti, profile: p.profile, canalLT: P.canalLT, side: $("p-side").value,
+    dxa: p.dxa, fit: p.fit, fitKey: p.fitKey };
+  const implant = { stem: p.stem, iface: p.iface, cement: p.cement, cup: p.cup, load: p.load };
+  SAVED = { params, implant, time: Date.now() };
+  BATCH = {}; BATCH[`${p.stem}/${STEMS[p.stem].cem ? "integree" : p.iface}`] = metrics;
+  saveStore(); startBatch();
+}
+function startBatch() {
+  if (batchWorker) batchWorker.terminate();
+  batchWorker = newWorker();
+  $("r-src").textContent = srcText();
+  const todo = CONFIGS.filter(c => !BATCH[c.join("/")]).map(c => ({ key: c.join("/"), stem: c[0], iface: c[1], cement: SAVED.implant.cement }));
+  let total = CONFIGS.length + THICK.length - 1, sweepAdded = false;
+  const step = () => {
+    if (!todo.length && !sweepAdded) {
+      sweepAdded = true; const R = recommend();
+      if (R && R.bestCem) for (const t of THICK) { const key = `${R.bestCem.stem}/integree@${t}`;
+        if (t !== SAVED.implant.cement && !BATCH[key]) todo.push({ key, stem: R.bestCem.stem, iface: "integree", cement: t, sweep: true }); }
+    }
+    const done = Object.keys(BATCH).length;
+    $("r-bar").style.width = Math.min(100, 100 * done / total).toFixed(0) + "%";
+    drawResults();
+    if (!todo.length) { $("r-status").textContent = "Comparaison terminée : 11 configurations de tige et 5 épaisseurs de ciment."; batchWorker.terminate(); batchWorker = null; return; }
+    const c = todo[0], S = STEMS[c.stem];
+    $("r-status").textContent = (c.sweep ? `Épaisseur du ciment ${c.cement} mm pour ${S.label}` : `${S.label}${S.cem ? "" : c.iface === "integree" ? ", intégrée" : ", non intégrée"}`) + `… (environ 30 s par calcul, le calcul continue si tu changes d'onglet)`;
+    batchWorker.onmessage = ev => { const m = ev.data;
+      if (m.type === "error") { $("r-status").textContent = "La comparaison a échoué : " + m.message; return; }
+      if (m.type !== "done") return;
+      BATCH[c.key] = m.metrics; saveStore(); todo.shift(); step(); };
+    batchWorker.postMessage({ ...SAVED.params, ...SAVED.implant, stem: c.stem, iface: c.iface, cement: c.cement });
+  };
+  step();
+}
+(function restore() {
+  let d = null; try { d = JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) {}
+  if (!d || !d.params) { drawResults(); return; }
+  d.params.fit = unpackFit(d.params.fit);
+  SAVED = { params: d.params, implant: d.implant, time: d.time }; BATCH = d.batch || {};
+  for (const k of ["alpha", "offset", "headD", "shaftD", "canalD", "canalLT"]) if (d.params[k] != null) $("p-" + k).value = d.params[k];
+  $("p-profile").value = d.params.profile; if (d.params.side) { $("p-side").value = d.params.side; VIEW2SIDE.v = d.params.side; V2.setSide(d.params.side === "gauche"); } derived(); PAT.set(d.implant);
+  $("p-status").textContent = "Modèle patient enregistré restauré. Appuyer sur Calculer pour réafficher sa vue 3D.";
+  const mk = BATCH[`${d.implant.stem}/${STEMS[d.implant.stem].cem ? "integree" : d.implant.iface}`];
+  if (mk) $("kpis-p").innerHTML = kpiHTML(mk, STEMS[d.implant.stem].cem);
+  // scanner du patient enregistré
+  geomWorker = newWorker();
+  geomWorker.onmessage = ev => { const m = ev.data; if (m.type !== "geom") return;
+    PT = { ct: m.ct, seg: m.seg, Eq: m.Eq, label: patientLabel(d.params), huC: m.info.huC, huT: m.info.huT, registered: true }; if (!$("tab-ct").hidden) drawCT(); };
+  geomWorker.postMessage({ mode: "geom", ...d.params });
+  startBatch();
+})();
+
+// ---------- démarrage ----------
+onTab.sim = () => { V1.resize(); simDraw(); };
+onTab.pat = () => { V2.resize(); patDraw(); };
+onTab.ct = () => ensureCT();
+onTab.res = () => drawResults();
+V1.resize(); simChanged();
+$("loading").remove();
+})();
+
+</script>
+</body>
+</html>
